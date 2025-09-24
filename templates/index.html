@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI SQL Test Data Generator</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <h1>GenAI SQL Test Data Generator</h1>
+                </div>
+                <nav class="nav">
+                    <button class="nav-btn active" data-tab="discover">
+                        <i class="fas fa-search"></i> Discover
+                    </button>
+                    <button class="nav-btn" data-tab="generate">
+                        <i class="fas fa-magic"></i> Generate
+                    </button>
+                    <button class="nav-btn" data-tab="jobs">
+                        <i class="fas fa-tasks"></i> Jobs
+                    </button>
+                    <button class="nav-btn" data-tab="help">
+                        <i class="fas fa-question-circle"></i> Help
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            
+            <!-- Database Configuration Panel -->
+            <div class="config-panel">
+                <h2><i class="fas fa-database"></i> Database Configuration</h2>
+                <div class="config-info">
+                    <p><i class="fas fa-info-circle"></i> Configuration loaded from .env file. You can override these values if needed.</p>
+                </div>
+                <form id="dbConfigForm" class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="server">SQL Server</label>
+                            <input type="text" id="server" name="server" placeholder="your-server.database.windows.net" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="database">Database</label>
+                            <input type="text" id="database" name="database" placeholder="your_database_name" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" placeholder="your_username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" placeholder="your_password" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="testConnection" class="btn btn-secondary">
+                            <i class="fas fa-plug"></i> Test Connection
+                        </button>
+                        <button type="button" id="saveConfig" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- OpenAI Configuration Panel (Hidden - using .env) -->
+            <div class="config-panel" style="display: none;">
+                <h2><i class="fas fa-brain"></i> OpenAI Configuration</h2>
+                <div class="config-info">
+                    <p><i class="fas fa-info-circle"></i> OpenAI configuration is loaded from environment variables (.env file)</p>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                
+                <!-- Discovery Tab -->
+                <div id="discoverTab" class="tab-pane active">
+                    <div class="section">
+                        <h2><i class="fas fa-search"></i> Complete Database Discovery</h2>
+                        <p class="section-desc">Discover and analyze your entire database schema including all tables, columns, and relationships for comprehensive Q&A generation.</p>
+                        
+                        <div class="discovery-options">
+                            <div class="form-group">
+                                <label for="excludeTables">Exclude Tables (comma-separated)</label>
+                                <input type="text" id="excludeTables" placeholder="sys,temp,log,audit" 
+                                       title="Table names to exclude from discovery">
+                                <small>System tables (sys, temp, log, audit, trace, information_schema) are automatically excluded</small>
+                            </div>
+                            <div class="discovery-info">
+                                <p><i class="fas fa-info-circle"></i> <strong>Complete Schema Discovery:</strong> This will analyze your entire database schema without table limits to provide comprehensive Q&A generation coverage.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button type="button" id="discoverBtn" class="btn btn-primary btn-large">
+                                <i class="fas fa-search"></i> Discover Database
+                            </button>
+                        </div>
+                        
+                        <div id="discoveryResults" class="results-panel" style="display: none;">
+                            <h3>Discovery Results</h3>
+                            <div id="discoveryContent"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generation Tab -->
+                <div id="generateTab" class="tab-pane">
+                    <div class="section">
+                        <h2><i class="fas fa-magic"></i> Q&A Dataset Generation</h2>
+                        <p class="section-desc">Generate comprehensive Q&A test datasets from your database.</p>
+                        
+                        <div class="generation-options">
+                            <div class="option-group">
+                                <h4>Table Selection</h4>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="tableMode" value="discover" checked>
+                                        <span class="radio-custom"></span>
+                                        Auto-discover all tables
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="tableMode" value="specific">
+                                        <span class="radio-custom"></span>
+                                        Specify tables manually
+                                    </label>
+                                </div>
+                                <div id="specificTables" class="form-group" style="display: none;">
+                                    <label for="tablesList">Tables (comma-separated)</label>
+                                    <input type="text" id="tablesList" placeholder="Employees,Departments,Projects">
+                                </div>
+                            </div>
+                            
+                            <div class="option-group">
+                                <h4>Generation Settings</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="questionsCount">Total Questions <span id="questionsCalculation" class="calculation-info"></span></label>
+                                        <input type="number" id="questionsCount" value="25" min="5" max="100">
+                                        <small>Total number of Q&A pairs to generate across all selected tables</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="maxTables">Max Tables <span id="tablesInfo" class="tables-info"></span></label>
+                                        <div class="input-with-button">
+                                            <input type="number" id="maxTables" value="12" min="2" max="50">
+                                            <button type="button" id="refreshTableCount" class="btn btn-outline btn-sm" title="Refresh table count">
+                                                <i class="fas fa-sync"></i>
+                                            </button>
+                                        </div>
+                                        <small id="maxTablesHelp">Maximum tables for auto-discovery (prevents token overflow)</small>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="includeJoins">Include Join Queries</label>
+                                        <div class="checkbox-container">
+                                            <input type="checkbox" id="includeJoins" checked>
+                                            <label for="includeJoins">Generate join-based questions</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Difficulty Level</label>
+                                        <div class="radio-group">
+                                            <label class="radio-label">
+                                                <input type="radio" name="difficulty" value="easy">
+                                                <span class="radio-custom"></span>
+                                                Easy (Simple queries)
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="difficulty" value="medium">
+                                                <span class="radio-custom"></span>
+                                                Medium (Moderate complexity)
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="difficulty" value="hard">
+                                                <span class="radio-custom"></span>
+                                                Hard (Complex queries)
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="difficulty" value="mixed" checked>
+                                                <span class="radio-custom"></span>
+                                                Mixed (All levels)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="outputFile">Output Filename</label>
+                                        <input type="text" id="outputFile" placeholder="qna_dataset.json">
+                                        <small>Optional custom filename</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button id="generateBtn" class="btn btn-primary btn-large">
+                                <i class="fas fa-magic"></i> Generate Dataset
+                            </button>
+                            <button id="generateAsyncBtn" class="btn btn-secondary btn-large">
+                                <i class="fas fa-clock"></i> Generate Async
+                            </button>
+                            <button id="generateDemoBtn" class="btn btn-success btn-large">
+                                <i class="fas fa-play"></i> Try Demo Mode
+                            </button>
+                        </div>
+                        
+                        <div id="generationResults" class="results-panel" style="display: none;">
+                            <h3>Generation Results</h3>
+                            <div id="generationContent"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Jobs Tab -->
+                <div id="jobsTab" class="tab-pane">
+                    <div class="section">
+                        <h2><i class="fas fa-tasks"></i> Background Jobs</h2>
+                        <p class="section-desc">Monitor and manage asynchronous generation jobs.</p>
+                        
+                        <div class="jobs-controls">
+                            <button id="refreshJobs" class="btn btn-secondary">
+                                <i class="fas fa-sync"></i> Refresh Jobs
+                            </button>
+                            <button id="clearJobs" class="btn btn-outline">
+                                <i class="fas fa-trash"></i> Clear Completed
+                            </button>
+                        </div>
+                        
+                        <div id="jobsList" class="jobs-list">
+                            <div class="empty-state">
+                                <i class="fas fa-clock"></i>
+                                <p>No background jobs yet</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help Tab -->
+                <div id="helpTab" class="tab-pane">
+                    <div class="section">
+                        <h2><i class="fas fa-question-circle"></i> Help & Documentation</h2>
+                        
+                        <div class="help-content">
+                            <div class="help-section">
+                                <h3>🚀 Quick Start</h3>
+                                <ol>
+                                    <li><strong>Configure Database</strong>: Enter your SQL Server credentials above</li>
+                                    <li><strong>Add OpenAI Key</strong>: Enter your OpenAI API key for LLM generation</li>
+                                    <li><strong>Discover Tables</strong>: Use the Discovery tab to explore your database</li>
+                                    <li><strong>Generate Dataset</strong>: Create Q&A pairs using the Generation tab</li>
+                                </ol>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h3>🔍 Complete Schema Discovery Features</h3>
+                                <ul>
+                                    <li><strong>Unlimited Discovery</strong>: Analyzes your entire database schema without table limits</li>
+                                    <li><strong>Auto-Discovery</strong>: Finds all tables and relationships automatically</li>
+                                    <li><strong>Smart Filtering</strong>: Excludes system tables and temporary data automatically</li>
+                                    <li><strong>Relationship Analysis</strong>: Identifies all foreign key relationships for comprehensive join coverage</li>
+                                    <li><strong>Complete Coverage</strong>: Ensures no business tables are missed in Q&A generation</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h3>🤖 Generation Options</h3>
+                                <ul>
+                                    <li><strong>Whole Database</strong>: Auto-discover and analyze all relevant tables</li>
+                                    <li><strong>Specific Tables</strong>: Target particular tables for focused testing</li>
+                                    <li><strong>Total Questions</strong>: Set the total number of Q&A pairs to generate (5-100, default: 25)</li>
+                                    <li><strong>Max Tables Limit</strong>: Configurable limit (default: 12) to prevent LLM token overflow while maintaining quality</li>
+                                    <li><strong>Smart Selection</strong>: When exceeding limit, prioritizes tables with most relationships</li>
+                                    <li><strong>Question Distribution</strong>: Questions are distributed across all selected tables based on relationships</li>
+                                    <li><strong>Join Emphasis</strong>: Generates questions requiring table relationships</li>
+                                    <li><strong>Sample-Based</strong>: Uses real data samples for accurate answers</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h3>⚡ Async Processing</h3>
+                                <ul>
+                                    <li><strong>Background Jobs</strong>: Handle large databases without timeouts</li>
+                                    <li><strong>Progress Tracking</strong>: Monitor generation progress in real-time</li>
+                                    <li><strong>Download Results</strong>: Export completed datasets as JSON files</li>
+                                    <li><strong>Job History</strong>: View and manage previous generation tasks</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h3>🧮 Token Usage & Costs</h3>
+                                <ul>
+                                    <li><strong>Real-time Tracking</strong>: View exact AI token usage for each generation</li>
+                                    <li><strong>Cost Estimation</strong>: See estimated OpenAI API costs in real-time</li>
+                                    <li><strong>Detailed Breakdown</strong>: Input tokens (your prompt) vs Output tokens (AI response)</li>
+                                    <li><strong>Model Information</strong>: Track which OpenAI model was used</li>
+                                    <li><strong>Export Data</strong>: Token usage included in downloaded JSON files</li>
+                                    <li><strong>Cost Optimization</strong>: Use fewer tables/questions to reduce costs</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h3>🔗 API Endpoints</h3>
+                                <div class="api-links">
+                                    <a href="/docs" target="_blank" class="btn btn-outline">
+                                        <i class="fas fa-code"></i> Interactive API Docs
+                                    </a>
+                                    <a href="/health" target="_blank" class="btn btn-outline">
+                                        <i class="fas fa-heartbeat"></i> Health Check
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </main>
+
+    <!-- Status Bar -->
+    <div id="statusBar" class="status-bar">
+        <div class="container">
+            <div class="status-content">
+                <span id="statusMessage">Ready</span>
+                <div id="statusLoader" class="loader" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">
+        <div class="toast-content">
+            <i class="toast-icon"></i>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Results</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="downloadResult" class="btn btn-primary" style="display: none;">
+                    <i class="fas fa-download"></i> Download JSON
+                </button>
+                <button class="btn btn-secondary modal-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

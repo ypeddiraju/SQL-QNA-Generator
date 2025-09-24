@@ -1,0 +1,96 @@
+### **Product Requirements Document: GenAI SQL Test Data Generator**
+
+| **Document Version:** | 2.0 |
+| :--- | :--- |
+| **Date:** | September 24, 2025 |
+| **Author:** | Product Management |
+| **Status:** | Approved for Development |
+
+### 1. Introduction & Problem Statement
+
+Testing and validating Natural Language to SQL (NL-to-SQL) applications is a significant engineering challenge. The core difficulty lies in creating comprehensive and realistic test datasets. Manually authoring questions is slow, and it is especially difficult to create a diverse set of complex questions that test the relational logic (i.e., SQL `JOIN` operations) of a database. Without a robust test suite covering these complex queries, developers cannot be confident in their application's ability to handle real-world user requests, leading to longer development cycles and less reliable products.
+
+This document outlines the requirements for the **GenAI SQL Test Data Generator**, a backend tool designed to solve this problem. The application will intelligently connect to a live SQL Server database, automatically discover table schemas and their relationships, and leverage a Large Language Model (LLM) to generate a high-quality test dataset of questions and their corresponding answers, with a strong emphasis on creating queries that require table joins.
+
+### 2. Product Vision & Goals
+
+**Product Vision:** To empower developers of NL-to-SQL systems with a powerful, automated tool that generates sophisticated, context-aware test datasets, dramatically improving the quality of testing and accelerating the development lifecycle.
+
+**Business & Product Goals:**
+
+*   **Goal 1: Automate Complex Test Data Generation:** Eliminate the manual effort required to write test cases that cover multi-table database logic.
+*   **Goal 2: Enhance Test Coverage & Quality:** Generate a rich dataset that includes simple lookups, filters, aggregations, and—most critically—complex relational questions, ensuring the NL-to-SQL engine is robustly tested.
+*   **Goal 3: Ensure Verifiable Accuracy:** Produce a dataset where every answer is verifiably correct based on a consistent sample of live data, creating a reliable "ground truth" for automated testing.
+*   **Goal 4: Boost Developer Velocity:** Free up engineering and QA resources from tedious test creation, allowing them to focus on core model development and feature work.
+
+### 3. Target Audience & User Persona
+
+**Primary User Persona:** Software Engineer / QA Automation Engineer
+
+*   **Description:** A technical user responsible for building, testing, or maintaining an application that converts natural language user input into executable SQL queries.
+*   **Needs & Pain Points:**
+    *   "I need to test if my application can correctly answer questions like 'How many engineers are in the corporate sector?', which requires joining the `Employees` and `Departments` tables. Writing these tests by hand is a huge time sink."
+    *   "Manually finding the correct answer from the database to validate a test case is tedious and error-prone."
+    *   "I need a way to quickly generate a large and diverse set of questions to test for regressions after I make a change to my model."
+    *   "The test data must be in a structured, machine-readable format (like JSON) so I can easily integrate it into our CI/CD pipeline."
+
+### 4. Features & Functionality
+
+#### 4.1. Database Connectivity & Configuration
+*   **REQ-001:** The application MUST connect to a Microsoft SQL Server database using user-provided credentials (Server, Database, User ID, Password).
+*   **REQ-002:** The user MUST be able to specify a list of two or more target table names for analysis.
+*   **REQ-003:** The application MUST use read-only database access to prevent any accidental data modification.
+
+#### 4.2. Automated Schema & Relationship Discovery
+*   **REQ-004:** The application MUST automatically query the database's `INFORMATION_SCHEMA` or system tables to retrieve the column names for each specified table.
+*   **REQ-005:** The application MUST automatically detect explicitly defined foreign key relationships between the specified tables to understand how they can be joined.
+
+#### 4.3. Relational Data Sampling
+*   **REQ-006:** The application MUST perform "relational data sampling." It will first fetch a small sample (e.g., top 5-10 rows) from a primary user-specified table.
+*   **REQ-007:** It will then use the foreign key values from this initial sample to fetch the corresponding, linked rows from the other specified tables, ensuring the data sample is internally consistent.
+
+#### 4.4. Intelligent Question & Answer Generation
+*   **REQ-008:** The application MUST pass the discovered schemas, relationships, and the relational data sample to a pre-configured LLM via a structured prompt.
+*   **REQ-009:** The LLM MUST be instructed to generate a diverse list of questions, with a target of at least 40% of questions requiring a join between the provided tables.
+*   **REQ-010:** Generated questions must cover a range of intents: simple lookups, filtering, aggregations, and complex relational queries.
+*   **REQ-011 (Critical):** For every question generated, the LLM MUST also provide the precise, correct answer derived exclusively from the provided relational data sample.
+
+#### 4.5. Structured Output
+*   **REQ-012:** The final output of the application MUST be a single, valid JSON array printed to standard output or saved to a file.
+*   **REQ-013:** Each object within the JSON array MUST contain two keys: `"question"` (the generated natural language question) and `"expected_answer"` (the correct answer).
+
+### 5. User Workflow
+1.  A developer configures the database connection details in a `.env` file or as environment variables.
+2.  The developer invokes the tool from the command line, providing a list of tables to analyze. Example: `python generate_dataset.py --tables Employees,Departments`.
+3.  The application connects to the SQL database.
+4.  It automatically discovers the schemas for `Employees` and `Departments` and identifies that `Employees.DepartmentID` links to `Departments.DepartmentID`.
+5.  It fetches the top 10 rows from `Employees` and then fetches the specific department rows whose IDs match those found in the employee sample.
+6.  The application constructs a detailed context block containing the schemas, relationships, and the linked sample data.
+7.  This context is sent to the LLM via LangChain with a prompt engineered to demand complex, join-based questions.
+8.  The LLM returns a JSON string containing a list of questions and answers.
+9.  The application validates the JSON and outputs the final dataset to a file named `qna_dataset.json`.
+
+### 6. Technical Requirements
+*   **Language:** Python
+*   **Frameworks:** LangChain
+*   **Database Connector:** `pyodbc`
+*   **LLM Provider:** OpenAI (GPT-4 or newer recommended for higher quality relational logic)
+*   **Deployment:** Command-Line Interface (CLI) application.
+
+### 7. Constraints & Assumptions
+*   **Assumption:** The target database has explicitly defined foreign key constraints. The tool will not infer relationships based on column naming conventions.
+*   **Constraint:** The quality and logical complexity of the generated questions are dependent on the capability of the underlying LLM.
+*   **Constraint:** For V1, the tool will focus on single-hop joins (e.g., `Table A -> Table B`). Multi-hop joins (`A -> B -> C`) are out of scope.
+*   **Constraint:** The application's purpose is to generate the Q&A dataset, not the SQL queries themselves.
+
+### 8. Success Metrics
+*   **Quality:** The application successfully generates a valid JSON output containing at least 15 question/answer pairs per run.
+*   **Relevance:** In a generated dataset, at least 40% of the questions demonstrably require a join between two or more tables to be answered.
+*   **Accuracy:** A manual review of a generated dataset shows that over 95% of the `expected_answer` values are verifiably correct based on the input data sample.
+*   **Performance:** The end-to-end generation process completes in under 90 seconds.
+
+### 9. Future Enhancements (Out of Scope for this Version)
+*   Support for additional SQL databases (PostgreSQL, MySQL).
+*   Generation of the ground-truth SQL query alongside the question and answer.
+*   Support for multi-hop joins and more complex relational structures.
+*   A simple web interface for non-technical users to configure and run the generator.
