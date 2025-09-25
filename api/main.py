@@ -27,7 +27,7 @@ from api.models import (
     DiscoveryRequest, DiscoveryResponse, TableInfo, RelationshipInfo,
     GenerationRequest, GenerationResponse, QAPair,
     HealthResponse, ErrorResponse, AsyncJobResponse,
-    DatabaseConfig, OpenAIConfig, GenerationConfig, SimpleGenerationRequest
+    DatabaseConfig, OpenAIConfig, GenerationConfig, SimpleGenerationRequest, SimpleDiscoveryRequest
 )
 from src.database_connector import DatabaseConnector
 from src.llm_generator import LLMGenerator
@@ -113,7 +113,12 @@ def create_config_from_request(db_config: DatabaseConfig, openai_config: Optiona
     os.environ['DB_DATABASE'] = db_config.database
     os.environ['DB_USERNAME'] = db_config.username
     os.environ['DB_PASSWORD'] = db_config.password
-    os.environ['DB_DRIVER'] = db_config.driver
+    os.environ['DB_TYPE'] = db_config.db_type.value
+    
+    if db_config.driver:
+        os.environ['DB_DRIVER'] = db_config.driver
+    if db_config.port:
+        os.environ['DB_PORT'] = str(db_config.port)
     
     if openai_config:
         os.environ['OPENAI_API_KEY'] = openai_config.api_key
@@ -185,6 +190,136 @@ async def health_check():
         timestamp=datetime.utcnow().isoformat()
     )
 
+@app.post("/api/test-connection")
+async def test_database_connection_with_config(request: dict):
+    """Test database connection with provided configuration."""
+    try:
+        # Extract database config from request
+        db_config_data = request.get('database_config')
+        if not db_config_data:
+            raise HTTPException(status_code=400, detail="Missing database_config in request")
+        
+        # Create DatabaseConfig object
+        db_config = DatabaseConfig(**db_config_data)
+        
+        # Create configuration from request
+        config = create_config_from_request(db_config)
+        
+        logger.info(f"Testing {config.db_type} database connection to {config.db_server}")
+        
+        # Initialize database connector
+        db_connector = DatabaseConnector(config)
+        
+        # Test connection
+        if db_connector.test_connection():
+            return {
+                "success": True,
+                "message": f"{config.db_type.upper()} connection successful",
+                "config": {
+                    "db_type": config.db_type,
+                    "server": config.db_server,
+                    "database": config.db_database,
+                    "port": config.db_port
+                }
+            }
+        else:
+            raise DatabaseConnectionError("Connection failed")
+            
+    except ValueError as e:
+        logger.error(f"Configuration validation error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {str(e)}")
+    except DatabaseConnectionError as e:
+        logger.error(f"Database connection failed: {e}")
+        raise HTTPException(status_code=503, detail={
+            "success": False,
+            "message": f"Database connection failed: {str(e)}",
+            "suggestions": [
+                "Check if the database server is running and accessible",
+                "Verify network connectivity and firewall settings", 
+                "Ensure the credentials are correct",
+                "Check if the database name exists",
+                "For SQL Server: Verify server allows remote connections",
+                "For MySQL: Check if user has proper permissions"
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Unexpected error during connection test: {e}")
+        raise HTTPException(status_code=500, detail={
+            "success": False,
+            "message": f"Connection test failed: {str(e)}"
+        })
+
+@app.post("/api/test-openai")
+async def test_openai_connection(request: dict):
+    """Test OpenAI API connection with provided configuration."""
+    try:
+        # Extract OpenAI config from request
+        openai_config_data = request.get('openai_config')
+        if not openai_config_data:
+            raise HTTPException(status_code=400, detail="Missing openai_config in request")
+        
+        # Create OpenAIConfig object
+        openai_config = OpenAIConfig(**openai_config_data)
+        
+        logger.info(f"Testing OpenAI connection with model {openai_config.model}")
+        
+        # Test OpenAI connection with a simple API call
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_config.api_key)
+        
+        # Make a minimal test call
+        response = client.chat.completions.create(
+            model=openai_config.model,
+            messages=[{"role": "user", "content": "Test"}],
+            max_tokens=1,
+            temperature=0
+        )
+        
+        return {
+            "success": True,
+            "message": "OpenAI connection successful",
+            "model": openai_config.model,
+            "test_response": response.choices[0].message.content if response.choices else "Test completed"
+        }
+        
+    except ValueError as e:
+        logger.error(f"OpenAI configuration validation error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid OpenAI configuration: {str(e)}")
+    except Exception as e:
+        error_message = str(e)
+        logger.error(f"OpenAI connection test failed: {error_message}")
+        
+        # Provide helpful error messages based on common issues
+        suggestions = []
+        if "api_key" in error_message.lower():
+            suggestions.extend([
+                "Check if your OpenAI API key is correct",
+                "Ensure the API key starts with 'sk-'",
+                "Verify the API key has not expired"
+            ])
+        elif "model" in error_message.lower():
+            suggestions.extend([
+                "Check if the selected model is available",
+                "Verify you have access to the requested model",
+                "Try using 'gpt-3.5-turbo' as a fallback"
+            ])
+        elif "quota" in error_message.lower() or "billing" in error_message.lower():
+            suggestions.extend([
+                "Check your OpenAI account billing status",
+                "Verify you have sufficient API credits"
+            ])
+        else:
+            suggestions.extend([
+                "Check your internet connection",
+                "Verify the OpenAI API is accessible from your network"
+            ])
+        
+        raise HTTPException(status_code=503, detail={
+            "success": False,
+            "message": f"OpenAI connection failed: {error_message}",
+            "suggestions": suggestions
+        })
+
 @app.post("/api/database/test-connection")
 async def test_database_connection():
     """Test database connection using current configuration with extended timeouts."""
@@ -234,24 +369,41 @@ async def test_database_connection():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/database/discover")
-async def discover_database_simple():
-    """Discover database using current global configuration."""
+async def discover_database_simple(request: SimpleDiscoveryRequest):
+    """Discover database using active connection."""
     try:
-        if global_config is None:
-            raise HTTPException(status_code=500, detail="Configuration not available")
+        from src.config import Config
         
-        # Initialize database connector
-        db_connector = DatabaseConnector(global_config)
+        # Check if there's an active connection
+        if not Config.has_active_connection():
+            raise HTTPException(
+                status_code=400, 
+                detail="No active database connection. Please start a connection first in the Config tab."
+            )
         
-        # Test connection first
-        if not db_connector.test_connection():
-            raise DatabaseConnectionError("Failed to connect to database")
+        # Get the active connector
+        db_connector = Config.get_active_connector()
+        active_config = Config.get_active_config()
         
-        # Discover all tables
+        if not db_connector or not active_config:
+            raise HTTPException(
+                status_code=500, 
+                detail="Active connection is invalid. Please restart the connection."
+            )
+        
+        logger.info(f"Using active {active_config.db_type} connection for discovery")
+        
+        # Discover all tables using active connection
         all_tables = await discover_all_tables_async(db_connector)
         
         # Apply basic filters (exclude common system tables)
         exclude_patterns = ['sys', 'temp', 'log', 'audit', 'trace', 'information_schema']
+        
+        # Add user-specified exclude tables
+        if request.exclude_tables:
+            user_excludes = [table.strip() for table in request.exclude_tables.split(',') if table.strip()]
+            exclude_patterns.extend(user_excludes)
+        
         filtered_tables = [
             table for table in all_tables 
             if not any(pattern.lower() in table.lower() for pattern in exclude_patterns)
@@ -262,9 +414,24 @@ async def discover_database_simple():
         
         logger.info(f"Discovered {len(limited_tables)} tables")
         
-        # Get schemas and relationships
-        schemas = db_connector.get_table_schemas(limited_tables)
-        relationships = db_connector.get_table_relationships(limited_tables)
+        # Get schemas and relationships - handle inaccessible tables gracefully
+        try:
+            schemas = db_connector.get_table_schemas(limited_tables)
+            if not schemas:
+                raise QNAGeneratorError("No accessible tables found")
+            
+            # Update limited_tables to only include accessible ones
+            accessible_tables = list(schemas.keys())
+            if len(accessible_tables) < len(limited_tables):
+                skipped = [t for t in limited_tables if t not in accessible_tables]
+                logger.warning(f"Skipped {len(skipped)} inaccessible tables during discovery: {skipped}")
+                limited_tables = accessible_tables
+            
+            relationships = db_connector.get_table_relationships(limited_tables)
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze table schemas: {e}")
+            raise QNAGeneratorError(f"Schema analysis failed: {e}")
         
         # Convert to response format
         tables_info = []
@@ -456,17 +623,39 @@ async def generate_dataset(request: GenerationRequest):
     if len(target_tables) < 2:
         raise QNAGeneratorError("At least 2 tables are required for meaningful Q&A generation")
     
-    # Analyze database
-    schemas = db_connector.get_table_schemas(target_tables)
-    relationships = db_connector.get_table_relationships(target_tables)
+    # Analyze database - handle cases where some tables are inaccessible
+    try:
+        schemas = db_connector.get_table_schemas(target_tables)
+        if not schemas:
+            raise QNAGeneratorError("No accessible tables found among the specified tables")
+        
+        # Update target_tables to only include accessible tables
+        accessible_tables = list(schemas.keys())
+        if len(accessible_tables) < len(target_tables):
+            skipped = [t for t in target_tables if t not in accessible_tables]
+            logger.warning(f"Skipped {len(skipped)} inaccessible tables: {skipped}")
+            target_tables = accessible_tables
+        
+        relationships = db_connector.get_table_relationships(target_tables)
+        
+        logger.info(f"Analyzed {len(schemas)} accessible tables with {len(relationships)} relationships")
+        
+    except Exception as e:
+        logger.error(f"Failed to analyze database structure: {e}")
+        raise QNAGeneratorError(f"Database analysis failed: {e}")
     
-    logger.info(f"Analyzed {len(schemas)} tables with {len(relationships)} relationships")
+    if len(target_tables) < 2:
+        raise QNAGeneratorError(f"At least 2 accessible tables are required for Q&A generation. Only {len(target_tables)} tables are accessible.")
     
-    # Sample data
+    # Sample data - use the first accessible table
     primary_table = target_tables[0]
-    sample_data = db_connector.get_relational_sample(
-        primary_table, target_tables, config.sample_size
-    )
+    try:
+        sample_data = db_connector.get_relational_sample(
+            primary_table, target_tables, config.sample_size
+        )
+    except Exception as e:
+        logger.error(f"Failed to sample data from tables: {e}")
+        raise QNAGeneratorError(f"Data sampling failed: {e}")
     
     logger.info("Collected relational sample data")
     
@@ -520,25 +709,32 @@ async def generate_dataset(request: GenerationRequest):
 
 @app.post("/api/generate/dataset", response_model=GenerationResponse)
 async def api_generate_dataset(request: SimpleGenerationRequest):
-    """API endpoint for Q&A dataset generation using environment configuration."""
+    """API endpoint for Q&A dataset generation using active connection."""
     try:
         logger.info(f"Received generation request: {request}")
         
-        # Load configuration from environment
-        config = Config()
-        
-        # Set difficulty level from request
-        config.difficulty_level = request.difficulty_level
-        
-        # Check if database is configured
-        if not config.is_database_configured():
+        # Check if there's an active connection
+        if not Config.has_active_connection():
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database configuration not available. Please configure database settings first."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active database connection. Please start a connection first in the Config tab."
             )
         
-        # Check if OpenAI is configured
-        if not config.is_openai_configured():
+        # Get the active connection components
+        active_config = Config.get_active_config()
+        db_connector = Config.get_active_connector()
+        
+        if not active_config or not db_connector:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Active connection is invalid. Please restart the connection."
+            )
+        
+        # Set difficulty level from request
+        active_config.difficulty_level = request.difficulty_level
+        
+        # Check if OpenAI is configured in the active config
+        if not active_config.is_openai_configured():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="OpenAI configuration not available. Please configure OpenAI API key first."
@@ -553,45 +749,183 @@ async def api_generate_dataset(request: SimpleGenerationRequest):
         # Map difficulty level to target join percentage
         target_join_percentage = get_target_join_percentage(
             request.difficulty_level, 
-            default_percentage=config.target_join_percentage
+            default_percentage=active_config.target_join_percentage
         )
         
         logger.info(f"Using difficulty level '{request.difficulty_level}' with {target_join_percentage}% target join percentage")
         
-        # Create full generation request from simple request + environment config
-        try:
-            full_request = GenerationRequest(
-                database_config=DatabaseConfig(
-                    server=config.db_server,
-                    database=config.db_database,
-                    username=config.db_username,
-                    password=config.db_password,
-                    driver=config.db_driver
-                ),
-                openai_config=OpenAIConfig(
-                    api_key=config.openai_api_key,
-                    model=config.openai_model
-                ),
-                generation_config=GenerationConfig(
-                    sample_size=config.sample_size,
-                    min_questions=request.questions_per_table,
-                    target_join_percentage=target_join_percentage,  # Use difficulty-based percentage
-                    max_tables=request.max_tables,  # Use max_tables from request instead of config
-                    output_file=request.output_file
-                ),
-                tables=tables,
-                discover_all=discover_all,
-                exclude_tables=[]
-            )
-            logger.info("GenerationRequest created successfully")
-        except Exception as model_error:
-            logger.error(f"Failed to create GenerationRequest: {model_error}")
+        # Direct generation using active connection components
+        logger.info("Starting direct generation with active connection")
+        
+        # Determine target tables using active connection
+        if discover_all:
+            # Auto-discover tables using the active connector
+            all_tables = await discover_all_tables_async(db_connector)
+            
+            # Apply basic filters with enhanced filtering
+            exclude_patterns = ['sys', 'temp', 'log', 'audit', 'trace', 'information_schema', 'mysql', 'performance_schema']
+            
+            filtered_tables = [
+                table for table in all_tables 
+                if not any(pattern.lower() in table.lower() for pattern in exclude_patterns)
+            ]
+            
+            # Limit tables to prevent token overflow and select most connected ones
+            max_tables = min(request.max_tables, len(filtered_tables))
+            
+            if len(filtered_tables) <= max_tables:
+                target_tables = filtered_tables
+            else:
+                # Get a sample of relationships to prioritize connected tables
+                sample_relationships = db_connector.get_table_relationships(filtered_tables[:20])
+                
+                # Count relationships per table
+                table_relationship_count = {}
+                for rel in sample_relationships:
+                    table_relationship_count[rel['parent_table']] = table_relationship_count.get(rel['parent_table'], 0) + 1
+                    table_relationship_count[rel['referenced_table']] = table_relationship_count.get(rel['referenced_table'], 0) + 1
+                
+                # Sort by relationship count and take top tables
+                sorted_tables = sorted(filtered_tables, 
+                                     key=lambda t: table_relationship_count.get(t, 0), 
+                                     reverse=True)
+                target_tables = sorted_tables[:max_tables]
+            
+            logger.info(f"Auto-discovered {len(filtered_tables)} tables, selected {len(target_tables)} for generation")
+        else:
+            target_tables = request.tables
+            logger.info(f"Using specified tables: {target_tables}")
+        
+        if len(target_tables) < 2:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Request validation failed: {str(model_error)}"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least 2 tables are required for meaningful Q&A generation"
             )
         
-        return await generate_dataset(full_request)
+        # Analyze database structure with better error handling
+        try:
+            # Get schemas with robust error handling
+            schemas = {}
+            accessible_tables = []
+            
+            for table_name in target_tables:
+                try:
+                    table_schemas = db_connector.get_table_schemas([table_name])
+                    if table_name in table_schemas and table_schemas[table_name]:
+                        schemas[table_name] = table_schemas[table_name]
+                        accessible_tables.append(table_name)
+                        logger.info(f"Successfully analyzed table '{table_name}' with {len(table_schemas[table_name])} columns")
+                    else:
+                        logger.warning(f"Skipping table '{table_name}' - no accessible columns found")
+                except Exception as table_error:
+                    logger.warning(f"Skipping problematic table '{table_name}': {table_error}")
+                    continue
+            
+            if not schemas:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No accessible tables found among the specified tables. Please check table permissions and names."
+                )
+            
+            if len(accessible_tables) < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"At least 2 accessible tables are required. Only {len(accessible_tables)} tables are accessible: {accessible_tables}"
+                )
+            
+            # Update target tables to only accessible ones
+            target_tables = accessible_tables
+            
+            # Get relationships for accessible tables only
+            relationships = db_connector.get_table_relationships(target_tables)
+            
+            logger.info(f"Analyzed {len(schemas)} accessible tables with {len(relationships)} relationships")
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to analyze database structure: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database analysis failed: {str(e)}"
+            )
+        
+        # Sample data from the primary table
+        primary_table = target_tables[0]
+        try:
+            sample_data = db_connector.get_relational_sample(
+                primary_table, target_tables, active_config.sample_size
+            )
+        except Exception as e:
+            logger.error(f"Failed to sample data from tables: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Data sampling failed: {str(e)}"
+            )
+        
+        logger.info("Collected relational sample data")
+        
+        # Generate Q&A dataset
+        try:
+            from src.llm_generator import LLMGenerator
+            
+            # Update config for generation
+            active_config.target_join_percentage = target_join_percentage
+            
+            llm_generator = LLMGenerator(active_config)
+            qna_dataset, token_usage = llm_generator.generate_qna_dataset(
+                schemas=schemas,
+                relationships=relationships,
+                sample_data=sample_data,
+                table_names=target_tables
+            )
+            
+        except Exception as e:
+            logger.error(f"Q&A generation failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Q&A generation failed: {str(e)}"
+            )
+        
+        # Calculate statistics
+        join_questions = sum(
+            1 for item in qna_dataset 
+            if llm_generator.requires_join(item['question'], target_tables)
+        )
+        join_percentage = (join_questions / len(qna_dataset)) * 100 if qna_dataset else 0
+        
+        # Build response
+        from api.models import QAPair, GenerationResponse
+        qa_pairs = [QAPair(question=item['question'], expected_answer=item['expected_answer']) 
+                    for item in qna_dataset]
+        
+        metadata = {
+            'tables_analyzed': target_tables,
+            'table_count': len(target_tables),
+            'relationship_count': len(relationships),
+            'sample_size': active_config.sample_size,
+            'generation_timestamp': datetime.utcnow().isoformat()
+        }
+        
+        statistics = {
+            'total_questions': len(qna_dataset),
+            'join_questions': join_questions,
+            'join_percentage': round(join_percentage, 1),
+            'single_table_questions': len(qna_dataset) - join_questions,
+            'target_join_percentage': active_config.target_join_percentage,
+            'meets_target': join_percentage >= active_config.target_join_percentage
+        }
+        
+        logger.info(f"Generated {len(qna_dataset)} Q&A pairs ({join_percentage:.1f}% joins)")
+        
+        return GenerationResponse(
+            success=True,
+            message=f"Successfully generated {len(qna_dataset)} Q&A pairs",
+            dataset=qa_pairs,
+            metadata=metadata,
+            statistics=statistics,
+            token_usage=token_usage
+        )
         
     except HTTPException:
         raise
@@ -638,6 +972,10 @@ async def api_generate_dataset_async(request: SimpleGenerationRequest, backgroun
     try:
         # Load configuration from environment
         config = Config()
+        
+        # Override database type if specified in request
+        if request.db_type:
+            config.db_type = request.db_type
         
         # Set difficulty level from request
         config.difficulty_level = request.difficulty_level
@@ -805,26 +1143,11 @@ async def download_dataset(job_id: str):
 # Helper functions
 async def discover_all_tables_async(db_connector: DatabaseConnector) -> List[str]:
     """Async wrapper for table discovery."""
-    import pyodbc
-    
     try:
-        with pyodbc.connect(db_connector.connection_string) as conn:
-            cursor = conn.cursor()
-            
-            query = """
-            SELECT TABLE_NAME
-            FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_TYPE = 'BASE TABLE'
-            AND TABLE_SCHEMA != 'sys'
-            AND TABLE_NAME NOT LIKE 'sys%'
-            AND TABLE_NAME NOT LIKE 'MSreplication%'
-            ORDER BY TABLE_NAME
-            """
-            
-            cursor.execute(query)
-            tables = [row.TABLE_NAME for row in cursor.fetchall()]
-            return tables
-            
+        # Use the connector's get_all_tables method instead of direct connection
+        tables = db_connector.get_all_tables()
+        return tables
+        
     except Exception as e:
         raise QNAGeneratorError(f"Failed to discover tables: {e}")
 
@@ -915,6 +1238,107 @@ async def process_generation_job(job_id: str, request: GenerationRequest):
 
 
 # Configuration endpoints
+@app.get("/api/config")
+async def get_full_config():
+    """Get current configuration including database and OpenAI settings."""
+    try:
+        if global_config is None:
+            raise HTTPException(status_code=500, detail="Configuration not available")
+        
+        # Load both MySQL and SQL Server configurations from environment
+        mysql_config = {
+            "type": "mysql",
+            "host": os.getenv("MYSQL_DB_SERVER", ""),
+            "port": os.getenv("MYSQL_DB_PORT", "3306"),
+            "database": os.getenv("MYSQL_DB_DATABASE", ""),
+            "username": os.getenv("MYSQL_DB_USERNAME", ""),
+            "password": os.getenv("MYSQL_DB_PASSWORD", ""),
+            "driver": os.getenv("MYSQL_DB_DRIVER", "mysql+pymysql")
+        }
+        
+        sqlserver_config = {
+            "type": "sqlserver", 
+            "host": os.getenv("SQLSERVER_DB_SERVER", ""),
+            "port": os.getenv("SQLSERVER_DB_PORT", "1433"),
+            "database": os.getenv("SQLSERVER_DB_DATABASE", ""),
+            "username": os.getenv("SQLSERVER_DB_USERNAME", ""),
+            "password": os.getenv("SQLSERVER_DB_PASSWORD", ""),
+            "driver": os.getenv("SQLSERVER_DB_DRIVER", "ODBC Driver 17 for SQL Server")
+        }
+        
+        return {
+            "database_config": {
+                "type": global_config.db_type,
+                "host": global_config.db_server,
+                "port": global_config.db_port,
+                "database": global_config.db_database,
+                "username": global_config.db_username,
+                # Don't expose password
+            },
+            "mysql_config": mysql_config,
+            "sqlserver_config": sqlserver_config,
+            "openai_config": {
+                "model": global_config.openai_model,
+                "api_key_configured": bool(global_config.openai_api_key),
+                "api_key_preview": f"{global_config.openai_api_key[:8]}..." if global_config.openai_api_key else None
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to get config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-openai")
+async def test_openai_from_env():
+    """Test OpenAI configuration from environment variables."""
+    try:
+        if global_config is None:
+            raise HTTPException(status_code=500, detail="Configuration not available")
+        
+        if not global_config.is_openai_configured():
+            return {
+                "success": False,
+                "message": "OpenAI not configured - check .env file",
+                "configured": False
+            }
+        
+        logger.info(f"Testing OpenAI connection with model {global_config.openai_model}")
+        
+        # Test OpenAI connection with a minimal API call
+        from openai import OpenAI
+        client = OpenAI(api_key=global_config.openai_api_key)
+        
+        # Make a minimal test call
+        response = client.chat.completions.create(
+            model=global_config.openai_model,
+            messages=[{"role": "user", "content": "Test"}],
+            max_tokens=1,
+            temperature=0
+        )
+        
+        return {
+            "success": True,
+            "message": "OpenAI connection successful",
+            "model": global_config.openai_model,
+            "configured": True,
+            "test_response": response.choices[0].message.content if response.choices else "Test completed"
+        }
+        
+    except Exception as e:
+        error_message = str(e)
+        logger.error(f"OpenAI connection test failed: {error_message}")
+        
+        return {
+            "success": False,
+            "message": f"OpenAI connection failed: {error_message}",
+            "configured": bool(global_config.openai_api_key) if global_config else False,
+            "suggestions": [
+                "Check if your OpenAI API key is correct in .env file",
+                "Ensure the API key starts with 'sk-'",
+                "Verify you have sufficient API credits",
+                "Check your internet connection"
+            ]
+        }
+
 @app.get("/api/config/database")
 async def get_database_config():
     """Get current database configuration (with masked password)."""
@@ -954,6 +1378,90 @@ async def get_openai_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Connection Management Endpoints
+@app.post("/api/connection/start")
+async def start_database_connection(request: dict):
+    """Start and maintain an active database connection."""
+    try:
+        # Extract database config from request
+        db_config_data = request.get('database_config')
+        if not db_config_data:
+            raise HTTPException(status_code=400, detail="Missing database_config in request")
+        
+        # Create DatabaseConfig object
+        db_config = DatabaseConfig(**db_config_data)
+        
+        # Create configuration from request
+        config = create_config_from_request(db_config)
+        
+        logger.info(f"Starting {config.db_type} database connection to {config.db_server}")
+        
+        # Start the connection
+        success, message = config.start_connection()
+        
+        if success:
+            connection_info = config.get_active_connection_info()
+            return {
+                "success": True,
+                "message": message,
+                "connection": connection_info
+            }
+        else:
+            raise HTTPException(status_code=400, detail={
+                "success": False,
+                "message": message
+            })
+            
+    except ValueError as e:
+        logger.error(f"Configuration validation error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {str(e)}")
+    except Exception as e:
+        logger.error(f"Failed to start connection: {e}")
+        raise HTTPException(status_code=500, detail={
+            "success": False,
+            "message": f"Failed to start connection: {str(e)}"
+        })
+
+
+@app.post("/api/connection/stop")
+async def stop_database_connection():
+    """Stop the currently active database connection."""
+    try:
+        from src.config import Config
+        
+        success, message = Config().stop_active_connection()
+        
+        return {
+            "success": success,
+            "message": message
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to stop connection: {e}")
+        raise HTTPException(status_code=500, detail={
+            "success": False,
+            "message": f"Failed to stop connection: {str(e)}"
+        })
+
+
+@app.get("/api/connection/status")
+async def get_connection_status():
+    """Get the status of active database connections."""
+    try:
+        from src.config import Config
+        
+        connection_info = Config.get_active_connection_info()
+        
+        return {
+            "has_active_connection": Config.has_active_connection(),
+            "connection": connection_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get connection status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/generate/dataset-demo", response_model=GenerationResponse)
 async def generate_dataset_demo(request: SimpleGenerationRequest):
     """Demo endpoint for Q&A dataset generation using mock data (no database required)."""
@@ -962,6 +1470,10 @@ async def generate_dataset_demo(request: SimpleGenerationRequest):
         
         # Load configuration from environment (only need OpenAI)
         config = Config()
+        
+        # Override database type if specified in request (though not used in demo)
+        if request.db_type:
+            config.db_type = request.db_type
         
         # Set difficulty level from request
         config.difficulty_level = request.difficulty_level

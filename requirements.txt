@@ -11,6 +11,10 @@ openai==1.3.7
 # Database connectivity for SQL Server
 pyodbc==5.0.1
 
+# Database connectivity for MySQL
+mysql-connector-python==8.2.0
+PyMySQL==1.1.0
+
 # Environment variable management
 python-dotenv==1.0.0
 

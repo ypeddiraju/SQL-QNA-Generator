@@ -57,7 +57,7 @@ Visit http://localhost:8000/docs for interactive API documentation with:
 
 ### 1. Database Discovery
 
-**Request:**
+**Request (SQL Server):**
 ```bash
 curl -X POST "http://localhost:8000/discover" \
   -H "Content-Type: application/json" \
@@ -66,9 +66,29 @@ curl -X POST "http://localhost:8000/discover" \
       "server": "your-server.database.windows.net",
       "database": "your_database",
       "username": "your_username", 
-      "password": "your_password"
+      "password": "your_password",
+      "db_type": "sqlserver",
+      "port": 1433
     },
     "exclude_tables": ["sys", "temp"],
+    "max_tables": 10
+  }'
+```
+
+**Request (MySQL):**
+```bash
+curl -X POST "http://localhost:8000/discover" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "database_config": {
+      "server": "localhost",
+      "database": "testdb",
+      "username": "testuser", 
+      "password": "testpass",
+      "db_type": "mysql",
+      "port": 3306
+    },
+    "exclude_tables": ["information_schema", "performance_schema"],
     "max_tables": 10
   }'
 ```
@@ -107,7 +127,7 @@ curl -X POST "http://localhost:8000/discover" \
 
 ### 2. Q&A Dataset Generation
 
-**Request:**
+**Request (SQL Server):**
 ```bash
 curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
@@ -116,7 +136,8 @@ curl -X POST "http://localhost:8000/generate" \
       "server": "your-server.database.windows.net",
       "database": "your_database", 
       "username": "your_username",
-      "password": "your_password"
+      "password": "your_password",
+      "db_type": "sqlserver"
     },
     "openai_config": {
       "api_key": "sk-your-openai-api-key",
@@ -173,7 +194,8 @@ curl -X POST "http://localhost:8000/generate" \
       "server": "your-server.database.windows.net",
       "database": "your_database",
       "username": "your_username",
-      "password": "your_password"
+      "password": "your_password",
+      "db_type": "sqlserver"
     },
     "openai_config": {
       "api_key": "sk-your-openai-api-key"
@@ -222,13 +244,25 @@ import json
 # API base URL
 BASE_URL = "http://localhost:8000"
 
-# Database configuration
+# Database configuration (SQL Server example)
 db_config = {
     "server": "your-server.database.windows.net",
     "database": "your_database",
     "username": "your_username", 
-    "password": "your_password"
+    "password": "your_password",
+    "db_type": "sqlserver",
+    "port": 1433
 }
+
+# For MySQL, use:
+# db_config = {
+#     "server": "localhost",
+#     "database": "testdb",
+#     "username": "testuser", 
+#     "password": "testpass",
+#     "db_type": "mysql",
+#     "port": 3306
+# }
 
 openai_config = {
     "api_key": "sk-your-openai-api-key",
@@ -276,15 +310,112 @@ else:
     print(f"Generation failed: {generation_result['message']}")
 ```
 
-## 🔧 **Configuration**
+## �️ **Database Support**
+
+### Supported Database Types
+
+The API supports both **SQL Server** and **MySQL** databases:
+
+| Database | db_type Value | Default Port | Required Fields |
+|----------|---------------|--------------|-----------------|
+| SQL Server | `sqlserver` or `mssql` | 1433 | server, database, username, password |
+| MySQL | `mysql` | 3306 | server, database, username, password |
+
+### Database Configuration Examples
+
+**SQL Server:**
+```json
+{
+  "database_config": {
+    "server": "server.database.windows.net",
+    "database": "CompanyDB",
+    "username": "dbuser",
+    "password": "securepass",
+    "db_type": "sqlserver",
+    "port": 1433,
+    "driver": "ODBC Driver 17 for SQL Server"
+  }
+}
+```
+
+**MySQL:**
+```json
+{
+  "database_config": {
+    "server": "mysql-host.com",
+    "database": "business_db",
+    "username": "mysql_user",
+    "password": "mysql_pass",
+    "db_type": "mysql", 
+    "port": 3306,
+    "driver": "mysql+pymysql"
+  }
+}
+```
+
+**Local MySQL (Docker):**
+```json
+{
+  "database_config": {
+    "server": "localhost",
+    "database": "testdb",
+    "username": "testuser",
+    "password": "testpass",
+    "db_type": "mysql",
+    "port": 3306
+  }
+}
+```
+
+### Database Requirements
+
+Both database types require:
+- **Foreign Key Relationships**: Essential for generating join-based questions
+- **Business-Relevant Tables**: Customer, sales, product, employee, or similar business entities
+- **Sample Data**: At least 10-50 rows per table for meaningful question generation
+
+### Quick Test with Docker MySQL
+
+```bash
+# Start MySQL with sample data
+docker-compose up mysql
+
+# Test connection
+curl -X POST "http://localhost:8000/discover" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "database_config": {
+      "server": "localhost",
+      "database": "testdb", 
+      "username": "testuser",
+      "password": "testpass",
+      "db_type": "mysql"
+    }
+  }'
+```
+
+## �🔧 **Configuration**
 
 ### Environment Variables
-The API can use environment variables for default configurations:
+The API uses a unified configuration approach with prefixed environment variables:
 
 ```env
-# Default database config (optional)
-DEFAULT_DB_SERVER=your-server.database.windows.net
-DEFAULT_DB_DATABASE=your_database
+# Database Type Selection
+DB_TYPE=mysql  # Options: sqlserver, mssql, mysql
+
+# MySQL Database Configuration
+MYSQL_DB_SERVER=localhost
+MYSQL_DB_DATABASE=testdb
+MYSQL_DB_USERNAME=testuser
+MYSQL_DB_PASSWORD=testpass
+MYSQL_DB_PORT=3306
+
+# SQL Server Database Configuration
+SQLSERVER_DB_SERVER=your-server.database.windows.net
+SQLSERVER_DB_DATABASE=your_database
+SQLSERVER_DB_USERNAME=your_username
+SQLSERVER_DB_PASSWORD=your_password
+SQLSERVER_DB_PORT=1433
 
 # API settings
 API_HOST=0.0.0.0
@@ -294,6 +425,12 @@ API_RELOAD=true
 # Logging
 LOG_LEVEL=INFO
 ```
+
+**Configuration Benefits:**
+- ✅ **Single `.env` file** for both database types
+- ✅ **Quick database switching** by changing `DB_TYPE`
+- ✅ **No credential conflicts** with prefixed variables
+- ✅ **Backward compatibility** with existing `DB_*` variables
 
 ### Production Settings
 For production deployment:

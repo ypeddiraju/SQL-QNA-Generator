@@ -1,38 +1,33 @@
 """
-Database connectivity module - factory wrapper for backwards compatibility.
+Abstract base class for database connectors.
 
-This module provides a factory-based approach to create database connectors
-for different database types (SQL Server, MySQL, etc.).
+Defines the interface that all database connectors must implement.
 """
 
-import logging
+from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Tuple, Optional
+import logging
 
 from .config import Config
-from .database_factory import create_database_connector, DatabaseConnectorFactory
-from .database_base import DatabaseConnectorBase
+from .exceptions import DatabaseConnectionError, SchemaDiscoveryError
 
 
 logger = logging.getLogger(__name__)
 
 
-class DatabaseConnector:
-    """
-    Legacy database connector class for backwards compatibility.
-    
-    This class wraps the factory-based connector creation and delegates
-    all operations to the appropriate database-specific connector.
-    """
+class DatabaseConnectorBase(ABC):
+    """Abstract base class for database connectors."""
     
     def __init__(self, config: Config):
         """Initialize database connector with configuration."""
         self.config = config
-        self._connector = create_database_connector(config)
-    
+        
+    @abstractmethod
     def test_connection(self) -> bool:
-        """Test database connection with retry logic and return True if successful."""
-        return self._connector.test_connection()
+        """Test database connection and return True if successful."""
+        pass
     
+    @abstractmethod
     def get_all_tables(self) -> List[str]:
         """
         Retrieve all user tables from the database.
@@ -40,8 +35,9 @@ class DatabaseConnector:
         Returns:
             List of table names
         """
-        return self._connector.get_all_tables()
+        pass
     
+    @abstractmethod
     def get_table_schemas(self, table_names: List[str]) -> Dict[str, List[Dict[str, Any]]]:
         """
         Retrieve column information for specified tables.
@@ -52,8 +48,9 @@ class DatabaseConnector:
         Returns:
             Dictionary mapping table names to their column definitions
         """
-        return self._connector.get_table_schemas(table_names)
+        pass
     
+    @abstractmethod
     def get_table_relationships(self, table_names: List[str]) -> List[Dict[str, Any]]:
         """
         Discover foreign key relationships between specified tables.
@@ -64,8 +61,9 @@ class DatabaseConnector:
         Returns:
             List of relationship definitions
         """
-        return self._connector.get_table_relationships(table_names)
+        pass
     
+    @abstractmethod
     def get_relational_sample(self, primary_table: str, all_tables: List[str], sample_size: int) -> Dict[str, List[Dict[str, Any]]]:
         """
         Perform relational data sampling starting from primary table.
@@ -78,4 +76,25 @@ class DatabaseConnector:
         Returns:
             Dictionary mapping table names to their sample data
         """
-        return self._connector.get_relational_sample(primary_table, all_tables, sample_size)
+        pass
+    
+    @abstractmethod
+    def _get_related_sample(self, cursor, primary_table: str, target_table: str, 
+                          primary_rows: List[Dict], relationships: List[Dict]) -> List[Dict[str, Any]]:
+        """Get sample data from target table related to primary table data."""
+        pass
+    
+    @abstractmethod
+    def _get_basic_sample(self, cursor, table_name: str, sample_size: int) -> List[Dict[str, Any]]:
+        """Get basic sample from table when no relationship exists."""
+        pass
+    
+    def _serialize_value(self, value: Any) -> Any:
+        """Convert non-serializable types to strings."""
+        if value is not None and not isinstance(value, (str, int, float, bool)):
+            return str(value)
+        return value
+    
+    def _serialize_row(self, row_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Serialize all values in a row dictionary."""
+        return {key: self._serialize_value(value) for key, value in row_dict.items()}

@@ -149,26 +149,10 @@ def discover_database(analyze_all: bool, min_tables: int, max_tables: int,
 
 def discover_all_tables(db_connector: DatabaseConnector) -> List[str]:
     """Discover all user tables in the database."""
-    import pyodbc
-    
     try:
-        with pyodbc.connect(db_connector.connection_string) as conn:
-            cursor = conn.cursor()
-            
-            # Query for all user tables (exclude system tables)
-            query = """
-            SELECT TABLE_NAME
-            FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_TYPE = 'BASE TABLE'
-            AND TABLE_SCHEMA != 'sys'
-            AND TABLE_NAME NOT LIKE 'sys%'
-            AND TABLE_NAME NOT LIKE 'MSreplication%'
-            ORDER BY TABLE_NAME
-            """
-            
-            cursor.execute(query)
-            tables = [row.TABLE_NAME for row in cursor.fetchall()]
-            return tables
+        # Use the database connector's built-in method instead of direct connection
+        tables = db_connector.get_all_tables()
+        return tables
             
     except Exception as e:
         raise QNAGeneratorError(f"Failed to discover tables: {e}")

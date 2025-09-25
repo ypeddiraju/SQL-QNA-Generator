@@ -32,6 +32,8 @@ const elements = {
     
     // Buttons
     testConnectionBtn: document.getElementById('testConnection'),
+    startConnectionBtn: document.getElementById('startConnection'),
+    stopConnectionBtn: document.getElementById('stopConnection'),
     discoverBtn: document.getElementById('discoverBtn'),
     generateBtn: document.getElementById('generateBtn'),
     generateAsyncBtn: document.getElementById('generateAsyncBtn'),
@@ -45,6 +47,7 @@ const elements = {
     
     // Status
     statusMessage: document.getElementById('statusMessage'),
+    connectionStatus: document.getElementById('connectionStatus'),
     
     // Modals
     modal: document.getElementById('resultModal'),
@@ -58,10 +61,59 @@ const elements = {
  */
 function init() {
     setupEventListeners();
-    showTab('discover');
-    updateStatus('Ready to start');
+    showTab('config');
+    updateStatus('Ready to start - Configure your database and OpenAI settings');
     loadSavedConfigurations();
     startJobPolling();
+    setupDatabaseTypeSync();
+    
+    // Initialize database type sections visibility
+    initializeDatabaseTypeSections();
+    
+    // Force check OpenAI and connection status on page load
+    setTimeout(() => {
+        checkOpenAIStatus();
+        checkConnectionStatus();
+    }, 1000);
+}
+
+/**
+ * Setup database type synchronization across all tabs
+ */
+function setupDatabaseTypeSync() {
+    // Get all database type radio buttons
+    const configRadios = document.querySelectorAll('input[name="databaseType"]');
+    const discoverRadios = document.querySelectorAll('input[name="discoverDbType"]');
+    const generateRadios = document.querySelectorAll('input[name="generateDbType"]');
+    
+    // Function to sync database type selection across tabs
+    function syncDatabaseType(selectedType) {
+        configRadios.forEach(radio => {
+            if (radio.value === selectedType) radio.checked = true;
+        });
+        discoverRadios.forEach(radio => {
+            if (radio.value === selectedType) radio.checked = true;
+        });
+        generateRadios.forEach(radio => {
+            if (radio.value === selectedType) radio.checked = true;
+        });
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('selectedDatabaseType', selectedType);
+    }
+    
+    // Load saved database type or default to sqlserver
+    const savedDbType = localStorage.getItem('selectedDatabaseType') || 'sqlserver';
+    syncDatabaseType(savedDbType);
+    
+    // Add listeners for all database type radio buttons
+    [...configRadios, ...discoverRadios, ...generateRadios].forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                syncDatabaseType(e.target.value);
+            }
+        });
+    });
 }
 
 /**
@@ -84,6 +136,8 @@ function setupEventListeners() {
     
     // Buttons
     elements.testConnectionBtn?.addEventListener('click', testDatabaseConnection);
+    elements.startConnectionBtn?.addEventListener('click', startDatabaseConnection);
+    elements.stopConnectionBtn?.addEventListener('click', stopDatabaseConnection);
     elements.discoverBtn?.addEventListener('click', discoverTables);
     elements.generateBtn?.addEventListener('click', generateDataset);
     elements.generateAsyncBtn?.addEventListener('click', generateDatasetAsync);
@@ -91,6 +145,13 @@ function setupEventListeners() {
     document.getElementById('refreshJobs')?.addEventListener('click', refreshJobs);
     document.getElementById('clearJobs')?.addEventListener('click', clearCompletedJobs);
     document.getElementById('refreshTableCount')?.addEventListener('click', updateTableCountInfo);
+    
+    // Configuration buttons (using environment-based config now)
+    
+    // Database type selection
+    document.querySelectorAll('input[name="dbType"]').forEach(radio => {
+        radio.addEventListener('change', handleDatabaseTypeChange);
+    });
     
     // Add input listeners for calculation updates
     document.getElementById('questionsCount')?.addEventListener('input', updateQuestionsCalculation);
@@ -209,7 +270,170 @@ async function handleOpenAIConfig(e) {
 }
 
 /**
- * Test database connection
+ * Check current connection status
+ */
+async function checkConnectionStatus() {
+    try {
+        const response = await fetch('/api/connection/status');
+        const result = await response.json();
+        
+        const connectionStatus = elements.connectionStatus;
+        const startBtn = elements.startConnectionBtn;
+        const stopBtn = elements.stopConnectionBtn;
+        
+        if (result.has_active_connection && result.connection) {
+            // Active connection exists
+            connectionStatus.innerHTML = `
+                <div class="connection-active">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <strong>Active Connection:</strong> ${result.connection.db_type.toUpperCase()}
+                    <br>
+                    <small>Server: ${result.connection.server} | Database: ${result.connection.database}</small>
+                </div>
+            `;
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            state.isConnected = true;
+        } else {
+            // No active connection
+            connectionStatus.innerHTML = `
+                <div class="connection-inactive">
+                    <i class="fas fa-times-circle text-warning"></i>
+                    <strong>No Active Connection</strong>
+                    <br>
+                    <small>Start a connection to use Discover and Generate features</small>
+                </div>
+            `;
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            state.isConnected = false;
+        }
+    } catch (error) {
+        console.error('Connection status check failed:', error);
+        elements.connectionStatus.innerHTML = `
+            <div class="connection-error">
+                <i class="fas fa-exclamation-triangle text-error"></i>
+                <strong>Connection Status Unknown</strong>
+                <br>
+                <small>Error: ${error.message}</small>
+            </div>
+        `;
+        state.isConnected = false;
+    }
+}
+
+/**
+ * Start database connection
+ */
+async function startDatabaseConnection() {
+    const btn = elements.startConnectionBtn;
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+        updateStatus('Starting database connection...');
+        
+        // Get current database configuration
+        const dbType = document.querySelector('input[name="dbType"]:checked')?.value || 'mysql';
+        const config = getDatabaseConfig(dbType);
+        
+        const response = await fetch('/api/connection/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                database_config: config
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showToast('Database connection started successfully!', 'success');
+            updateStatus('Database connection active');
+            await checkConnectionStatus(); // Refresh status
+        } else {
+            throw new Error(result.message || 'Failed to start connection');
+        }
+    } catch (error) {
+        console.error('Connection start error:', error);
+        showToast(`Failed to start connection: ${error.message}`, 'error');
+        updateStatus('Failed to start connection');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Stop database connection
+ */
+async function stopDatabaseConnection() {
+    const btn = elements.stopConnectionBtn;
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+        updateStatus('Stopping database connection...');
+        
+        const response = await fetch('/api/connection/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showToast('Database connection stopped successfully!', 'success');
+            updateStatus('Database connection stopped');
+            await checkConnectionStatus(); // Refresh status
+        } else {
+            throw new Error(result.message || 'Failed to stop connection');
+        }
+    } catch (error) {
+        console.error('Connection stop error:', error);
+        showToast(`Failed to stop connection: ${error.message}`, 'error');
+        updateStatus('Failed to stop connection');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Get database configuration based on selected type
+ */
+function getDatabaseConfig(dbType) {
+    if (dbType === 'mysql') {
+        return {
+            db_type: 'mysql',
+            server: document.getElementById('mysqlServer')?.value || 'localhost',
+            port: parseInt(document.getElementById('mysqlPort')?.value || '3306'),
+            database: document.getElementById('mysqlDatabase')?.value || '',
+            username: document.getElementById('mysqlUsername')?.value || '',
+            password: document.getElementById('mysqlPassword')?.value || '',
+            driver: 'mysql+pymysql'
+        };
+    } else {
+        return {
+            db_type: 'sqlserver',
+            server: document.getElementById('sqlserverServer')?.value || '',
+            port: parseInt(document.getElementById('sqlserverPort')?.value || '1433'),
+            database: document.getElementById('sqlserverDatabase')?.value || '',
+            username: document.getElementById('sqlserverUsername')?.value || '',
+            password: document.getElementById('sqlserverPassword')?.value || '',
+            driver: 'ODBC Driver 17 for SQL Server'
+        };
+    }
+}
+
+/**
+ * Test database connection using environment configuration
  */
 async function testDatabaseConnection() {
     const btn = elements.testConnectionBtn;
@@ -220,21 +444,36 @@ async function testDatabaseConnection() {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
         updateStatus('Testing database connection...');
         
-        const response = await fetch(`${CONFIG.API_BASE_URL}/database/test-connection`, {
-            method: 'POST'
+        // Use the environment-based endpoint
+        const response = await fetch('/api/database/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
         });
         
         const result = await response.json();
         
-        if (response.ok) {
+        if (response.ok && result.status === 'success') {
             showToast('Database connection successful!', 'success');
             state.isConnected = true;
             updateStatus('Database connection successful');
             
+            // Update database status display
+            const dbStatusText = document.getElementById('dbStatusText');
+            const dbStatusItem = document.getElementById('dbStatus');
+            
+            if (dbStatusText && dbStatusItem) {
+                dbStatusText.textContent = '✅ Done (Connected)';
+                dbStatusText.className = 'status-value status-success';
+                dbStatusItem.classList.add('status-configured');
+                dbStatusItem.classList.remove('status-error');
+            }
+            
             // Update table count info after successful connection
             await updateTableCountInfo();
         } else {
-            throw new Error(result.detail || 'Connection failed');
+            throw new Error(result.message || result.error?.message || 'Connection failed');
         }
     } catch (error) {
         console.error('Connection test error:', error);
@@ -251,6 +490,12 @@ async function testDatabaseConnection() {
  * Discover database tables
  */
 async function discoverTables() {
+    // Check for active connection first
+    if (!state.isConnected) {
+        showToast('No active database connection. Please start a connection in the Config tab first.', 'warning');
+        return;
+    }
+    
     const btn = elements.discoverBtn;
     const originalText = btn.innerHTML;
     
@@ -260,8 +505,10 @@ async function discoverTables() {
         updateStatus('Discovering database tables...');
         
         // Get discovery options
+        const dbType = document.querySelector('input[name="discoverDbType"]:checked')?.value || 'sqlserver';
         const options = {
-            exclude_tables: document.getElementById('excludeTables')?.value || ''
+            exclude_tables: document.getElementById('excludeTables')?.value || '',
+            db_type: dbType
         };
         
         const response = await fetch(`${CONFIG.API_BASE_URL}/database/discover`, {
@@ -372,6 +619,12 @@ async function handleGeneration(e) {
  * Generate dataset (synchronous)
  */
 async function generateDataset() {
+    // Check for active connection first
+    if (!state.isConnected) {
+        showToast('No active database connection. Please start a connection in the Config tab first.', 'warning');
+        return;
+    }
+    
     const btn = elements.generateBtn;
     const originalText = btn.innerHTML;
     
@@ -484,6 +737,12 @@ async function generateDatasetDemo() {
  * Generate dataset (asynchronous background job)
  */
 async function generateDatasetAsync() {
+    // Check for active connection first
+    if (!state.isConnected) {
+        showToast('No active database connection. Please start a connection in the Config tab first.', 'warning');
+        return;
+    }
+    
     const btn = elements.generateAsyncBtn;
     const originalText = btn.innerHTML;
     
@@ -585,8 +844,8 @@ function getGenerationOptions() {
     if (maxTables < 2) {
         throw new Error('Max tables must be at least 2 for meaningful Q&A generation');
     }
-    if (maxTables > 50) {
-        throw new Error('Max tables cannot exceed 50 to prevent token overflow issues');
+    if (maxTables > 100) {
+        throw new Error('Max tables cannot exceed 100 to prevent excessive token usage');
     }
     
     // Validate total questions
@@ -597,13 +856,17 @@ function getGenerationOptions() {
         throw new Error('Total questions cannot exceed 100 to prevent processing issues');
     }
     
+    // Get database type selection
+    const dbType = document.querySelector('input[name="generateDbType"]:checked')?.value || 'sqlserver';
+
     return {
         tables: tables,
         questions_per_table: totalQuestions,  // This is actually total questions, not per table
         max_tables: maxTables,
         include_joins: document.getElementById('includeJoins')?.checked || true,
         difficulty_level: document.querySelector('input[name="difficulty"]:checked')?.value || 'mixed',
-        output_file: document.getElementById('outputFile')?.value || null
+        output_file: document.getElementById('outputFile')?.value || null,
+        db_type: dbType
     };
 }
 
@@ -1175,8 +1438,11 @@ async function loadSavedConfigurations() {
         // Load database config from server (environment variables)
         await loadDatabaseConfiguration();
         
-        // Load OpenAI config info
+        // Load OpenAI config info and status
         await loadOpenAIConfiguration();
+        
+        // Check OpenAI status for configuration tab
+        await checkOpenAIStatus();
         
         // Load table count information if database is configured
         await updateTableCountInfo();
@@ -1202,15 +1468,145 @@ async function loadSavedConfigurations() {
 }
 
 /**
+ * Check OpenAI configuration status from environment
+ */
+async function checkOpenAIStatus() {
+    console.log('Checking OpenAI status...');
+    try {
+        const response = await fetch('/api/test-openai');
+        const result = await response.json();
+        console.log('OpenAI status response:', result);
+        
+        const statusText = document.getElementById('openaiStatusText');
+        const statusItem = document.getElementById('openaiStatus');
+        const configInfo = document.getElementById('openaiConfigInfo');
+        
+        console.log('Status elements found:', { statusText: !!statusText, statusItem: !!statusItem, configInfo: !!configInfo });
+        
+        if (statusText && statusItem) {
+            if (result.success && result.configured) {
+                console.log('Setting OpenAI status to Done');
+                statusText.textContent = '✅ Done';
+                statusText.className = 'status-value status-success';
+                statusItem.classList.add('status-configured');
+                statusItem.classList.remove('status-error');
+                
+                // Update the configuration panel info
+                if (configInfo) {
+                    configInfo.innerHTML = `
+                        <div class="config-success">
+                            <p><i class="fas fa-check-circle" style="color: var(--success-color);"></i> <strong>OpenAI Configuration Complete</strong></p>
+                            <p>✅ Model: <strong>${result.model}</strong></p>
+                            <p>✅ API Key: Configured and verified</p>
+                            <p>✅ Connection: Working properly</p>
+                        </div>
+                    `;
+                }
+            } else {
+                console.log('OpenAI not configured');
+                statusText.textContent = 'Check .env file';
+                statusText.className = 'status-value status-error';
+                statusItem.classList.add('status-error');
+                statusItem.classList.remove('status-configured');
+                
+                // Update the configuration panel info for error state
+                if (configInfo) {
+                    configInfo.innerHTML = `
+                        <div class="config-error">
+                            <p><i class="fas fa-exclamation-triangle" style="color: var(--error-color);"></i> <strong>OpenAI Not Configured</strong></p>
+                            <p>Please check your .env file configuration.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error checking OpenAI status:', error);
+        const statusText = document.getElementById('openaiStatusText');
+        const statusItem = document.getElementById('openaiStatus');
+        const configInfo = document.getElementById('openaiConfigInfo');
+        
+        if (statusText && statusItem) {
+            statusText.textContent = 'Error checking';
+            statusText.className = 'status-value status-error';
+            statusItem.classList.add('status-error');
+            statusItem.classList.remove('status-configured');
+            
+            if (configInfo) {
+                configInfo.innerHTML = `
+                    <div class="config-error">
+                        <p><i class="fas fa-exclamation-triangle" style="color: var(--error-color);"></i> <strong>Error Checking Configuration</strong></p>
+                        <p>Unable to verify OpenAI configuration.</p>
+                    </div>
+                `;
+            }
+        }
+    }
+}
+
+/**
  * Load database configuration from server
  */
 async function loadDatabaseConfiguration() {
     try {
-        const response = await fetch(`${CONFIG.API_BASE_URL}/config/database`);
+        const response = await fetch(`${CONFIG.API_BASE_URL}/config`);
         if (response.ok) {
-            const config = await response.json();
-            populateDatabaseForm(config);
-            updateStatus('Database configuration loaded from environment');
+            const data = await response.json();
+            if (data.database_config) {
+                // Set database type radio buttons to match environment configuration
+                const dbTypeRadios = document.querySelectorAll('input[name="dbType"]');
+                dbTypeRadios.forEach(radio => {
+                    if (radio.value === data.database_config.type) {
+                        radio.checked = true;
+                    }
+                });
+                
+                // Show appropriate form sections
+                handleDatabaseTypeChange(data.database_config.type);
+                
+                // Pre-fill MySQL form fields with MySQL environment values
+                if (data.mysql_config) {
+                    const mysqlServerInput = document.getElementById('mysqlServer');
+                    const mysqlPortInput = document.getElementById('mysqlPort');
+                    const mysqlDatabaseInput = document.getElementById('mysqlDatabase');
+                    const mysqlUsernameInput = document.getElementById('mysqlUsername');
+                    const mysqlPasswordInput = document.getElementById('mysqlPassword');
+                    
+                    if (mysqlServerInput) mysqlServerInput.value = data.mysql_config.host || 'localhost';
+                    if (mysqlPortInput) mysqlPortInput.value = data.mysql_config.port || '3306';
+                    if (mysqlDatabaseInput) mysqlDatabaseInput.value = data.mysql_config.database || '';
+                    if (mysqlUsernameInput) mysqlUsernameInput.value = data.mysql_config.username || '';
+                    if (mysqlPasswordInput) mysqlPasswordInput.value = data.mysql_config.password || '';
+                }
+                
+                // Pre-fill SQL Server form fields with SQL Server environment values  
+                if (data.sqlserver_config) {
+                    const sqlserverServerInput = document.getElementById('sqlserverServer');
+                    const sqlserverPortInput = document.getElementById('sqlserverPort');
+                    const sqlserverDatabaseInput = document.getElementById('sqlserverDatabase');
+                    const sqlserverUsernameInput = document.getElementById('sqlserverUsername');
+                    const sqlserverPasswordInput = document.getElementById('sqlserverPassword');
+                    
+                    if (sqlserverServerInput) sqlserverServerInput.value = data.sqlserver_config.host || '';
+                    if (sqlserverPortInput) sqlserverPortInput.value = data.sqlserver_config.port || '1433';
+                    if (sqlserverDatabaseInput) sqlserverDatabaseInput.value = data.sqlserver_config.database || '';
+                    if (sqlserverUsernameInput) sqlserverUsernameInput.value = data.sqlserver_config.username || '';
+                    if (sqlserverPasswordInput) sqlserverPasswordInput.value = data.sqlserver_config.password || '';
+                }
+                
+                // Update database status display
+                const dbStatusText = document.getElementById('dbStatusText');
+                const dbStatusItem = document.getElementById('dbStatus');
+                
+                if (dbStatusText && dbStatusItem) {
+                    dbStatusText.textContent = `✅ Done (${data.database_config.type.toUpperCase()})`;
+                    dbStatusText.className = 'status-value status-success';
+                    dbStatusItem.classList.add('status-configured');
+                    dbStatusItem.classList.remove('status-error');
+                }
+                
+                updateStatus('Database configuration loaded from environment');
+            }
         }
     } catch (error) {
         console.warn('Failed to load database configuration from server:', error);
@@ -1306,12 +1702,12 @@ function updateTableCountInfoFromResult(result) {
     
     // Update help text with more context
     if (maxTablesHelpElement) {
-        maxTablesHelpElement.textContent = `Maximum tables for auto-discovery. Database has ${totalTables} business tables available. Higher values may cause token overflow.`;
+        maxTablesHelpElement.textContent = `Maximum tables for auto-discovery. Database has ${totalTables} business tables available (up to 100 tables supported).`;
     }
     
     // Adjust max attribute and suggest a good default
     if (maxTablesInput) {
-        maxTablesInput.setAttribute('max', Math.min(50, totalTables));
+        maxTablesInput.setAttribute('max', Math.min(100, totalTables));
         
         // Suggest a reasonable default (50% of available tables, but not less than 6 or more than 20)
         const suggestedMax = Math.max(6, Math.min(20, Math.floor(totalTables * 0.5)));
@@ -1359,12 +1755,12 @@ async function updateTableCountInfo() {
             
             // Update help text with more context
             if (maxTablesHelpElement) {
-                maxTablesHelpElement.textContent = `Maximum tables for auto-discovery. Database has ${filteredTables} business tables available. Higher values may cause token overflow.`;
+                maxTablesHelpElement.textContent = `Maximum tables for auto-discovery. Database has ${filteredTables} business tables available (up to 100 tables supported).`;
             }
             
             // Adjust max attribute and suggest a good default
             if (maxTablesInput) {
-                maxTablesInput.setAttribute('max', Math.min(50, filteredTables));
+                maxTablesInput.setAttribute('max', Math.min(100, filteredTables));
                 
                 // Suggest a reasonable default (50% of available tables, but not less than 6 or more than 20)
                 const suggestedMax = Math.max(6, Math.min(20, Math.floor(filteredTables * 0.5)));
@@ -1513,6 +1909,66 @@ function downloadDataset() {
     }
 }
 
+/**
+ * Configuration Management Functions
+ */
+
+/**
+ * Initialize database type sections visibility based on default selection
+ */
+function initializeDatabaseTypeSections() {
+    // Get the currently selected database type
+    const selectedRadio = document.querySelector('input[name="dbType"]:checked');
+    const selectedType = selectedRadio ? selectedRadio.value : 'mysql';
+    
+    // Trigger the change handler to set up proper visibility
+    handleDatabaseTypeChange(selectedType);
+}
+
+/**
+ * Handle database type change for configuration tab
+ */
+function handleDatabaseTypeChange(event) {
+    const selectedType = event?.target?.value || event;
+    
+    // Hide all database configuration sections
+    document.querySelectorAll('.db-config-section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Show the selected database type section
+    let selectedSection = null;
+    if (selectedType === 'mysql') {
+        selectedSection = document.getElementById('mysqlConfig');
+    } else if (selectedType === 'sqlserver') {
+        selectedSection = document.getElementById('sqlserverConfig');
+    }
+    
+    if (selectedSection) {
+        selectedSection.classList.add('active');
+        selectedSection.style.display = 'block';
+    }
+    
+    updateStatus(`Switched to ${selectedType.toUpperCase()} configuration`);
+}
+
+
+
+/**
+ * Get current database configuration for API calls
+ */
+function getCurrentDbConfig() {
+    return window.currentDbConfig || null;
+}
+
+/**
+ * Get current OpenAI configuration for API calls
+ */
+function getCurrentOpenAIConfig() {
+    return window.currentOpenAIConfig || null;
+}
+
 // Export functions for global access
 window.viewJobDetails = viewJobDetails;
 window.downloadJobResult = downloadJobResult;
@@ -1521,6 +1977,265 @@ window.downloadGenerationResult = downloadGenerationResult;
 window.showAllQuestions = showAllQuestions;
 window.downloadDataset = downloadDataset;
 window.updateTableCountInfo = updateTableCountInfo;
+window.getCurrentDbConfig = getCurrentDbConfig;
+window.getCurrentOpenAIConfig = getCurrentOpenAIConfig;
+window.checkOpenAIStatus = checkOpenAIStatus;
+window.testStatusUpdate = function() {
+    console.log('Manual status update test...');
+    const statusText = document.getElementById('openaiStatusText');
+    const statusItem = document.getElementById('openaiStatus');
+    
+    console.log('Elements:', { statusText, statusItem });
+    
+    if (statusText && statusItem) {
+        statusText.textContent = '✅ Done (Manual Test)';
+        statusText.className = 'status-value status-success';
+        statusItem.classList.add('status-configured');
+        statusItem.classList.remove('status-error');
+        console.log('Status updated manually');
+    } else {
+        console.log('Elements not found!');
+    }
+};
+
+/**
+ * Connection Management Functions
+ */
+
+/**
+ * Start database connection
+ */
+async function startDatabaseConnection() {
+    const btn = elements.startConnectionBtn;
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+        updateStatus('Starting database connection...');
+        
+        // Get current database configuration
+        const dbConfig = getDatabaseConfigFromForm();
+        if (!dbConfig) {
+            throw new Error('Please configure database settings first');
+        }
+        
+        const response = await fetch(`${CONFIG.API_BASE_URL}/connection/start`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                database_config: dbConfig
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showToast('Database connection started successfully!', 'success');
+            updateStatus('Database connection is active');
+            
+            // Update UI to show active connection
+            updateConnectionUI(true, result.connection);
+            
+            // Update state
+            state.isConnected = true;
+            
+        } else {
+            throw new Error(result.message || 'Failed to start connection');
+        }
+        
+    } catch (error) {
+        console.error('Start connection error:', error);
+        showToast(`Error: ${error.message}`, 'error');
+        updateStatus('Failed to start database connection');
+        updateConnectionUI(false);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Stop database connection
+ */
+async function stopDatabaseConnection() {
+    const btn = elements.stopConnectionBtn;
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+        updateStatus('Stopping database connection...');
+        
+        const response = await fetch(`${CONFIG.API_BASE_URL}/connection/stop`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showToast('Database connection stopped successfully!', 'success');
+            updateStatus('Database connection stopped');
+            
+            // Update UI to show no active connection
+            updateConnectionUI(false);
+            
+            // Update state
+            state.isConnected = false;
+            
+        } else {
+            throw new Error(result.message || 'Failed to stop connection');
+        }
+        
+    } catch (error) {
+        console.error('Stop connection error:', error);
+        showToast(`Error: ${error.message}`, 'error');
+        updateStatus('Failed to stop database connection');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Check connection status
+ */
+async function checkConnectionStatus() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/connection/status`);
+        const result = await response.json();
+        
+        if (response.ok) {
+            updateConnectionUI(result.has_active_connection, result.connection);
+            state.isConnected = result.has_active_connection;
+            return result;
+        } else {
+            console.error('Failed to check connection status:', result);
+            updateConnectionUI(false);
+            state.isConnected = false;
+            return { has_active_connection: false };
+        }
+        
+    } catch (error) {
+        console.error('Connection status check error:', error);
+        updateConnectionUI(false);
+        state.isConnected = false;
+        return { has_active_connection: false };
+    }
+}
+
+/**
+ * Update connection UI based on status
+ */
+function updateConnectionUI(isActive, connectionInfo = null) {
+    const startBtn = elements.startConnectionBtn;
+    const stopBtn = elements.stopConnectionBtn;
+    const statusElement = elements.connectionStatus;
+    
+    if (startBtn && stopBtn) {
+        if (isActive) {
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+        } else {
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+        }
+    }
+    
+    if (statusElement) {
+        if (isActive && connectionInfo) {
+            statusElement.innerHTML = `
+                <div class="connection-active">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <strong>Active Connection:</strong> ${connectionInfo.db_type.toUpperCase()}
+                    <br>
+                    <small>Server: ${connectionInfo.server} | Database: ${connectionInfo.database}</small>
+                </div>
+            `;
+        } else {
+            statusElement.innerHTML = `
+                <div class="connection-inactive">
+                    <i class="fas fa-times-circle text-warning"></i>
+                    <strong>No Active Connection</strong>
+                    <br>
+                    <small>Start a connection to enable discover and generate features</small>
+                </div>
+            `;
+        }
+    }
+}
+
+/**
+ * Get database configuration from form
+ */
+function getDatabaseConfigFromForm() {
+    // Get selected database type
+    const dbTypeRadios = document.querySelectorAll('input[name="dbType"]');
+    let selectedDbType = null;
+    
+    for (const radio of dbTypeRadios) {
+        if (radio.checked) {
+            selectedDbType = radio.value;
+            break;
+        }
+    }
+    
+    if (!selectedDbType) {
+        showToast('Please select a database type', 'error');
+        return null;
+    }
+    
+    let config;
+    
+    if (selectedDbType === 'mysql') {
+        config = {
+            db_type: 'mysql',
+            server: document.getElementById('mysqlServer')?.value,
+            port: parseInt(document.getElementById('mysqlPort')?.value) || 3306,
+            database: document.getElementById('mysqlDatabase')?.value,
+            username: document.getElementById('mysqlUsername')?.value,
+            password: document.getElementById('mysqlPassword')?.value,
+            driver: 'mysql+pymysql'
+        };
+    } else {
+        config = {
+            db_type: 'sqlserver',
+            server: document.getElementById('sqlserverServer')?.value,
+            port: parseInt(document.getElementById('sqlserverPort')?.value) || 1433,
+            database: document.getElementById('sqlserverDatabase')?.value,
+            username: document.getElementById('sqlserverUsername')?.value,
+            password: document.getElementById('sqlserverPassword')?.value,
+            driver: 'ODBC Driver 17 for SQL Server'
+        };
+    }
+    
+    // Validate required fields
+    const requiredFields = ['server', 'database', 'username', 'password'];
+    const missingFields = requiredFields.filter(field => !config[field]);
+    
+    if (missingFields.length > 0) {
+        showToast(`Please fill in required fields: ${missingFields.join(', ')}`, 'error');
+        return null;
+    }
+    
+    return config;
+}
+
+// Export connection management functions
+window.startDatabaseConnection = startDatabaseConnection;
+window.stopDatabaseConnection = stopDatabaseConnection;
+window.checkConnectionStatus = checkConnectionStatus;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', init);
+
+// Also try to initialize on window load as backup
+window.addEventListener('load', function() {
+    console.log('Window loaded, forcing OpenAI status check...');
+    setTimeout(checkOpenAIStatus, 500);
+});

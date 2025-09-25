@@ -15,13 +15,48 @@ class LogLevel(str, Enum):
     ERROR = "ERROR"
 
 
+class DatabaseType(str, Enum):
+    """Database type enumeration."""
+    SQLSERVER = "sqlserver"
+    MSSQL = "mssql" 
+    MYSQL = "mysql"
+
+
 class DatabaseConfig(BaseModel):
     """Database connection configuration."""
-    server: str = Field(..., description="SQL Server hostname or IP")
+    server: str = Field(..., description="Database server hostname or IP")
     database: str = Field(..., description="Database name")
     username: str = Field(..., description="Database username")
     password: str = Field(..., description="Database password")
-    driver: str = Field(default="ODBC Driver 17 for SQL Server", description="ODBC driver name")
+    db_type: DatabaseType = Field(default=DatabaseType.SQLSERVER, description="Database type")
+    driver: Optional[str] = Field(default=None, description="Database driver (auto-selected if not specified)")
+    port: Optional[int] = Field(default=None, description="Database port (auto-selected if not specified)")
+    
+    @field_validator('driver')
+    @classmethod 
+    def set_default_driver(cls, v, info):
+        """Set default driver based on database type if not provided."""
+        if v is not None:
+            return v
+        
+        db_type = info.data.get('db_type', DatabaseType.SQLSERVER)
+        if db_type == DatabaseType.MYSQL:
+            return "mysql+pymysql"
+        else:
+            return "ODBC Driver 17 for SQL Server"
+    
+    @field_validator('port')
+    @classmethod
+    def set_default_port(cls, v, info):
+        """Set default port based on database type if not provided."""
+        if v is not None:
+            return v
+            
+        db_type = info.data.get('db_type', DatabaseType.SQLSERVER)
+        if db_type == DatabaseType.MYSQL:
+            return 3306
+        else:
+            return 1433
 
 
 class OpenAIConfig(BaseModel):
@@ -35,7 +70,7 @@ class GenerationConfig(BaseModel):
     sample_size: int = Field(default=10, ge=1, le=100, description="Number of sample rows per table")
     min_questions: int = Field(default=25, ge=5, le=100, description="Total number of questions to generate")
     target_join_percentage: int = Field(default=40, ge=0, le=100, description="Target percentage of join questions")
-    max_tables: int = Field(default=12, ge=2, le=50, description="Maximum number of tables to include in generation (to prevent token overflow)")
+    max_tables: int = Field(default=12, ge=2, le=100, description="Maximum number of tables to include in generation")
     output_file: Optional[str] = Field(default=None, description="Output file name (optional)")
 
 
@@ -158,11 +193,18 @@ class AsyncJobResponse(BaseModel):
     updated_at: str
 
 
+class SimpleDiscoveryRequest(BaseModel):
+    """Simplified request model for database discovery using environment config."""
+    exclude_tables: str = Field(default="", description="Comma-separated list of tables to exclude")
+    db_type: Optional[str] = Field(default=None, description="Database type (sqlserver or mysql)")
+
+
 class SimpleGenerationRequest(BaseModel):
     """Simplified request model for Q&A generation using environment config."""
     tables: List[str] = Field(default_factory=list, description="List of table names to analyze (empty for auto-discovery)")
     questions_per_table: int = Field(default=25, ge=5, le=100, description="Total number of Q&A pairs to generate")
-    max_tables: int = Field(default=12, ge=2, le=50, description="Maximum number of tables for auto-discovery")
+    max_tables: int = Field(default=12, ge=2, le=100, description="Maximum number of tables for auto-discovery")
     include_joins: bool = Field(default=True, description="Include join-based questions")
     difficulty_level: str = Field(default="mixed", description="Question difficulty level")
     output_file: Optional[str] = Field(default=None, description="Output file name (optional)")
+    db_type: Optional[str] = Field(default=None, description="Database type (sqlserver or mysql)")

@@ -18,7 +18,10 @@
                     <h1>GenAI SQL Test Data Generator</h1>
                 </div>
                 <nav class="nav">
-                    <button class="nav-btn active" data-tab="discover">
+                    <button class="nav-btn active" data-tab="config">
+                        <i class="fas fa-cog"></i> Config
+                    </button>
+                    <button class="nav-btn" data-tab="discover">
                         <i class="fas fa-search"></i> Discover
                     </button>
                     <button class="nav-btn" data-tab="generate">
@@ -39,60 +42,189 @@
     <main class="main">
         <div class="container">
             
-            <!-- Database Configuration Panel -->
-            <div class="config-panel">
-                <h2><i class="fas fa-database"></i> Database Configuration</h2>
-                <div class="config-info">
-                    <p><i class="fas fa-info-circle"></i> Configuration loaded from .env file. You can override these values if needed.</p>
-                </div>
-                <form id="dbConfigForm" class="config-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="server">SQL Server</label>
-                            <input type="text" id="server" name="server" placeholder="your-server.database.windows.net" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="database">Database</label>
-                            <input type="text" id="database" name="database" placeholder="your_database_name" required>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="username">Username</label>
-                            <input type="text" id="username" name="username" placeholder="your_username" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Password</label>
-                            <input type="password" id="password" name="password" placeholder="your_password" required>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" id="testConnection" class="btn btn-secondary">
-                            <i class="fas fa-plug"></i> Test Connection
-                        </button>
-                        <button type="button" id="saveConfig" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Save Configuration
-                        </button>
-                    </div>
-                </form>
-            </div>
 
-            <!-- OpenAI Configuration Panel (Hidden - using .env) -->
-            <div class="config-panel" style="display: none;">
-                <h2><i class="fas fa-brain"></i> OpenAI Configuration</h2>
-                <div class="config-info">
-                    <p><i class="fas fa-info-circle"></i> OpenAI configuration is loaded from environment variables (.env file)</p>
-                </div>
-            </div>
 
             <!-- Tab Content -->
             <div class="tab-content">
                 
+                <!-- Configuration Tab -->
+                <div id="configTab" class="tab-pane active">
+                    <div class="section">
+                        <h2><i class="fas fa-cog"></i> Database & AI Configuration</h2>
+                        <p class="section-desc">Configure your database connection and OpenAI settings for Q&A generation.</p>
+                        
+                        <!-- Database Configuration Panel -->
+                        <div class="config-panel">
+                            <h3><i class="fas fa-database"></i> Database Configuration</h3>
+                            <div class="config-info">
+                                <p><i class="fas fa-info-circle"></i> Select your database type and configure connection settings.</p>
+                            </div>
+                            
+                            <form id="dbConfigForm" class="config-form">
+                                <!-- Database Type Selection -->
+                                <div class="form-group db-type-selection">
+                                    <label>Database Type</label>
+                                    <div class="radio-group db-type-radio">
+                                        <label class="radio-label">
+                                            <input type="radio" name="dbType" value="mysql" checked>
+                                            <span class="radio-custom"></span>
+                                            <i class="fab fa-mysql"></i> MySQL
+                                        </label>
+                                        <label class="radio-label">
+                                            <input type="radio" name="dbType" value="sqlserver">
+                                            <span class="radio-custom"></span>
+                                            <i class="fas fa-database"></i> SQL Server
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- MySQL Configuration -->
+                                <div id="mysqlConfig" class="db-config-section active">
+                                    <h4><i class="fab fa-mysql"></i> MySQL Connection</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="mysqlServer">Server</label>
+                                            <input type="text" id="mysqlServer" name="mysqlServer" 
+                                                   placeholder="localhost" value="localhost">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="mysqlPort">Port</label>
+                                            <input type="number" id="mysqlPort" name="mysqlPort" 
+                                                   placeholder="3306" value="3306">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="mysqlDatabase">Database</label>
+                                            <input type="text" id="mysqlDatabase" name="mysqlDatabase" 
+                                                   placeholder="testdb" value="testdb">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="mysqlUsername">Username</label>
+                                            <input type="text" id="mysqlUsername" name="mysqlUsername" 
+                                                   placeholder="testuser" value="testuser">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="mysqlPassword">Password</label>
+                                            <input type="password" id="mysqlPassword" name="mysqlPassword" 
+                                                   placeholder="testpass" value="testpass">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- SQL Server Configuration -->
+                                <div id="sqlserverConfig" class="db-config-section">
+                                    <h4><i class="fas fa-database"></i> SQL Server Connection</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="sqlserverServer">Server</label>
+                                            <input type="text" id="sqlserverServer" name="sqlserverServer" 
+                                                   placeholder="your-server.database.windows.net">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sqlserverPort">Port</label>
+                                            <input type="number" id="sqlserverPort" name="sqlserverPort" 
+                                                   placeholder="1433" value="1433">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="sqlserverDatabase">Database</label>
+                                            <input type="text" id="sqlserverDatabase" name="sqlserverDatabase" 
+                                                   placeholder="YourDatabase">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sqlserverUsername">Username</label>
+                                            <input type="text" id="sqlserverUsername" name="sqlserverUsername" 
+                                                   placeholder="your_username">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="sqlserverPassword">Password</label>
+                                            <input type="password" id="sqlserverPassword" name="sqlserverPassword" 
+                                                   placeholder="your_password">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="button" id="testConnection" class="btn btn-secondary">
+                                        <i class="fas fa-plug"></i> Test Connection
+                                    </button>
+                                    <button type="button" id="startConnection" class="btn btn-primary">
+                                        <i class="fas fa-play"></i> Start Connection
+                                    </button>
+                                    <button type="button" id="stopConnection" class="btn btn-danger" style="display: none;">
+                                        <i class="fas fa-stop"></i> Stop Connection
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- OpenAI Configuration Panel -->
+                        <div class="config-panel">
+                            <h3><i class="fas fa-brain"></i> OpenAI Configuration</h3>
+                            <div class="config-info" id="openaiConfigInfo">
+                                <p><i class="fas fa-spinner fa-spin"></i> Checking OpenAI configuration...</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Active Connection Status -->
+                        <div class="config-panel">
+                            <h3><i class="fas fa-link"></i> Active Connection Status</h3>
+                            <div id="connectionStatus" class="connection-status">
+                                <p><i class="fas fa-spinner fa-spin"></i> Checking connection status...</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Configuration Status -->
+                        <div class="config-status">
+                            <h3><i class="fas fa-check-circle"></i> Configuration Status</h3>
+                            <div class="status-grid">
+                                <div class="status-item" id="dbStatus">
+                                    <i class="fas fa-database"></i>
+                                    <span class="status-label">Database</span>
+                                    <span class="status-value" id="dbStatusText">Not configured</span>
+                                </div>
+                                <div class="status-item" id="openaiStatus">
+                                    <i class="fas fa-brain"></i>
+                                    <span class="status-label">OpenAI</span>
+                                    <span class="status-value" id="openaiStatusText">Checking...</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; text-align: center;">
+                                <button id="refreshStatus" class="btn btn-outline btn-sm" onclick="checkOpenAIStatus(); checkConnectionStatus();">
+                                    <i class="fas fa-sync"></i> Refresh Status
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Discovery Tab -->
-                <div id="discoverTab" class="tab-pane active">
+                <div id="discoverTab" class="tab-pane">
                     <div class="section">
                         <h2><i class="fas fa-search"></i> Complete Database Discovery</h2>
                         <p class="section-desc">Discover and analyze your entire database schema including all tables, columns, and relationships for comprehensive Q&A generation.</p>
+                        
+                        <div class="database-selection">
+                            <h4><i class="fas fa-database"></i> Database Type</h4>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="discoverDbType" value="sqlserver" checked>
+                                    <span class="radio-custom"></span>
+                                    SQL Server
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="discoverDbType" value="mysql">
+                                    <span class="radio-custom"></span>
+                                    MySQL
+                                </label>
+                            </div>
+                        </div>
                         
                         <div class="discovery-options">
                             <div class="form-group">
@@ -124,6 +256,22 @@
                     <div class="section">
                         <h2><i class="fas fa-magic"></i> Q&A Dataset Generation</h2>
                         <p class="section-desc">Generate comprehensive Q&A test datasets from your database.</p>
+                        
+                        <div class="database-selection">
+                            <h4><i class="fas fa-database"></i> Database Type</h4>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="generateDbType" value="sqlserver" checked>
+                                    <span class="radio-custom"></span>
+                                    SQL Server
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="generateDbType" value="mysql">
+                                    <span class="radio-custom"></span>
+                                    MySQL
+                                </label>
+                            </div>
+                        </div>
                         
                         <div class="generation-options">
                             <div class="option-group">
@@ -157,12 +305,12 @@
                                     <div class="form-group">
                                         <label for="maxTables">Max Tables <span id="tablesInfo" class="tables-info"></span></label>
                                         <div class="input-with-button">
-                                            <input type="number" id="maxTables" value="12" min="2" max="50">
+                                            <input type="number" id="maxTables" value="12" min="2" max="100">
                                             <button type="button" id="refreshTableCount" class="btn btn-outline btn-sm" title="Refresh table count">
                                                 <i class="fas fa-sync"></i>
                                             </button>
                                         </div>
-                                        <small id="maxTablesHelp">Maximum tables for auto-discovery (prevents token overflow)</small>
+                                        <small id="maxTablesHelp">Maximum tables for auto-discovery (up to 100 tables supported)</small>
                                     </div>
                                 </div>
                                 <div class="form-row">

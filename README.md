@@ -1,6 +1,6 @@
 # GenAI SQL Test Data Generator
 
-A comprehensive business intelligence test data generator that connects to SQL Server databases and leverages Large Language Models to create realistic business analysis questions and answers. Designed for testing Natural Language to SQL applications with enterprise-grade business scenarios.
+A comprehensive business intelligence test data generator that connects to SQL Server and MySQL databases and leverages Large Language Models to create realistic business analysis questions and answers. Designed for testing Natural Language to SQL applications with enterprise-grade business scenarios.
 
 ## 🚀 Features
 
@@ -43,9 +43,11 @@ A comprehensive business intelligence test data generator that connects to SQL S
 ## 🔧 Requirements
 
 - **Python**: 3.8 or higher
-- **Database**: Microsoft SQL Server with explicit foreign key constraints
+- **Database**: Microsoft SQL Server or MySQL with explicit foreign key constraints
 - **AI Service**: OpenAI API key (GPT-4 recommended)
-- **Drivers**: SQL Server ODBC Driver 17 or newer
+- **Drivers**: 
+  - For SQL Server: SQL Server ODBC Driver 17 or newer
+  - For MySQL: mysql-connector-python and PyMySQL (automatically installed)
 - **Optional**: Web browser for UI interface
 
 ## Installation
@@ -81,12 +83,26 @@ Edit the `.env` file with your database and API credentials:
 OPENAI_API_KEY=sk-your-actual-api-key-here
 OPENAI_MODEL=gpt-4o
 
+# Database Configuration
+
+# Active Database Type Selection
+DB_TYPE=mysql  # Options: sqlserver, mssql, mysql
+
+# MySQL Database Configuration
+MYSQL_DB_SERVER=localhost
+MYSQL_DB_DATABASE=testdb
+MYSQL_DB_USERNAME=testuser
+MYSQL_DB_PASSWORD=testpass
+MYSQL_DB_DRIVER=mysql+pymysql
+MYSQL_DB_PORT=3306
+
 # SQL Server Database Configuration  
-DB_SERVER=your-server.database.windows.net
-DB_DATABASE=your_database_name
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-DB_DRIVER=ODBC Driver 17 for SQL Server
+SQLSERVER_DB_SERVER=your-server.database.windows.net
+SQLSERVER_DB_DATABASE=your_database_name
+SQLSERVER_DB_USERNAME=your_username
+SQLSERVER_DB_PASSWORD=your_password
+SQLSERVER_DB_DRIVER=ODBC Driver 17 for SQL Server
+SQLSERVER_DB_PORT=1433
 
 # Application Configuration
 OUTPUT_FILE=qna_dataset.json
@@ -96,6 +112,65 @@ TARGET_JOIN_PERCENTAGE=40  # Default for 'mixed' difficulty
 DIFFICULTY_LEVEL=mixed     # Options: easy, medium, hard, mixed
 LOG_LEVEL=INFO
 ```
+
+## 🗄️ Database Setup
+
+### SQL Server Setup
+
+1. **Install SQL Server ODBC Driver 17** (if not already installed)
+2. **Configure Database Access**:
+   - Ensure SQL Server authentication is enabled
+   - Create or use existing database with sample business data
+   - Verify foreign key relationships exist between tables
+
+### MySQL Setup
+
+1. **Using Docker (Recommended for Development)**:
+   ```bash
+   # Start MySQL with sample data
+   docker-compose up mysql
+   ```
+
+2. **Manual MySQL Setup**:
+   ```bash
+   # Install MySQL 8.0 or higher
+   # Create database and user
+   mysql -u root -p
+   CREATE DATABASE your_database_name;
+   CREATE USER 'your_username'@'%' IDENTIFIED BY 'your_password';
+   GRANT ALL PRIVILEGES ON your_database_name.* TO 'your_username'@'%';
+   FLUSH PRIVILEGES;
+   ```
+
+3. **Load Sample Data**: 
+   - Use the provided sample schema in `init-mysql/01-sample-schema.sql`
+   - Or import your own business data with proper foreign key relationships
+
+### Unified Configuration Approach
+
+The application uses **prefixed environment variables** to support both database types in a single `.env` file:
+
+- **MySQL credentials**: `MYSQL_DB_SERVER`, `MYSQL_DB_USERNAME`, `MYSQL_DB_PASSWORD`, etc.
+- **SQL Server credentials**: `SQLSERVER_DB_SERVER`, `SQLSERVER_DB_USERNAME`, `SQLSERVER_DB_PASSWORD`, etc.
+- **Database selection**: Set `DB_TYPE=mysql` or `DB_TYPE=sqlserver`
+
+**Quick Database Switching:**
+```bash
+# Use MySQL
+DB_TYPE=mysql
+
+# Use SQL Server  
+DB_TYPE=sqlserver
+```
+
+The application automatically selects the correct credentials based on `DB_TYPE`.
+
+### Database Requirements
+
+Both database types require:
+- **Foreign Key Relationships**: Essential for generating join-based questions
+- **Business-Relevant Data**: Customer, sales, product, or employee tables
+- **Sufficient Sample Data**: At least 10-50 rows per table for meaningful questions
 
 ### 🎯 Difficulty Level Configuration
 

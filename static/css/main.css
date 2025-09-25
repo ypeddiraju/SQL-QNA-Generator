@@ -1324,6 +1324,262 @@ body {
     line-height: 1.25;
 }
 
+/* Configuration Tab Styles */
+.db-type-selection {
+    margin-bottom: 2rem;
+}
+
+.db-type-radio {
+    display: flex;
+    gap: 2rem;
+    margin-top: 0.5rem;
+}
+
+.db-type-radio .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 150px;
+    justify-content: center;
+}
+
+.db-type-radio .radio-label:hover {
+    border-color: var(--primary-light);
+    background-color: var(--gray-50);
+}
+
+.db-type-radio input:checked + .radio-custom + i {
+    color: var(--primary-color);
+}
+
+.db-type-radio input:checked ~ * {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.db-type-radio .radio-label:has(input:checked) {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.db-type-radio .radio-label:has(input:checked) i {
+    color: white;
+}
+
+.db-config-section {
+    display: none;
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    background-color: var(--gray-50);
+}
+
+.db-config-section.active {
+    display: block;
+}
+
+.db-config-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+    font-size: 1.125rem;
+}
+
+.db-config-section h4 i {
+    color: var(--primary-color);
+}
+
+.database-selection {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    background-color: var(--gray-50);
+}
+
+.database-selection h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.database-selection h4 i {
+    color: var(--primary-color);
+}
+
+.config-status {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    background-color: var(--white);
+}
+
+.config-status h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.status-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background-color: var(--gray-50);
+    transition: all 0.3s ease;
+}
+
+.status-item i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--gray-400);
+}
+
+.status-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.status-value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--gray-700);
+    text-align: center;
+}
+
+.status-value.status-success {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.status-value.status-error {
+    color: var(--error-color);
+}
+
+.status-item.status-configured {
+    border-color: var(--success-color);
+    background-color: rgba(34, 197, 94, 0.1);
+}
+
+.status-item.status-configured i {
+    color: var(--success-color);
+}
+
+.status-item.status-error {
+    border-color: var(--error-color);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.status-item.status-error i {
+    color: var(--error-color);
+}
+
+/* Configuration panel status styles */
+.config-success {
+    padding: 1rem;
+    border-left: 4px solid var(--success-color);
+    background-color: rgba(34, 197, 94, 0.1);
+    border-radius: 0 8px 8px 0;
+}
+
+.config-success p {
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.config-success p:last-child {
+    margin-bottom: 0;
+}
+
+.config-error {
+    padding: 1rem;
+    border-left: 4px solid var(--error-color);
+    background-color: rgba(239, 68, 68, 0.1);
+    border-radius: 0 8px 8px 0;
+}
+
+.config-error p {
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.config-error p:last-child {
+    margin-bottom: 0;
+}
+
+.status-item i {
+    font-size: 1.25rem;
+    color: var(--gray-400);
+}
+
+.status-item.configured {
+    border-color: var(--success-color);
+    background-color: #ecfdf5;
+}
+
+.status-item.configured i {
+    color: var(--success-color);
+}
+
+.status-item.error {
+    border-color: var(--error-color);
+    background-color: #fef2f2;
+}
+
+.status-item.error i {
+    color: var(--error-color);
+}
+
+.status-label {
+    font-weight: 500;
+    color: var(--gray-700);
+    font-size: 0.875rem;
+}
+
+.status-value {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin-left: auto;
+}
+
+.status-item.configured .status-value {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.status-item.error .status-value {
+    color: var(--error-color);
+    font-weight: 600;
+}
+
 /* Responsive Q&A Improvements */
 @media (max-width: 768px) {
     .question-item {
@@ -1335,4 +1591,74 @@ body {
         align-items: flex-start;
         gap: 0.5rem;
     }
+    
+    .db-type-radio {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .db-type-radio .radio-label {
+        min-width: unset;
+    }
+}
+
+/* Connection Status Styles */
+.connection-status {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+}
+
+.connection-active {
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.connection-active i {
+    color: var(--success-color);
+}
+
+.connection-inactive {
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    color: #92400e;
+}
+
+.connection-inactive i {
+    color: var(--warning-color);
+}
+
+.connection-error {
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.connection-error i {
+    color: var(--error-color);
+}
+
+/* Text color utilities for status */
+.text-success {
+    color: var(--success-color) !important;
+}
+
+.text-warning {
+    color: var(--warning-color) !important;
+}
+
+.text-error {
+    color: var(--error-color) !important;
 }
