@@ -202,7 +202,7 @@ class SimpleDiscoveryRequest(BaseModel):
 class SimpleGenerationRequest(BaseModel):
     """Simplified request model for Q&A generation using environment config."""
     tables: List[str] = Field(default_factory=list, description="List of table names to analyze (empty for auto-discovery)")
-    questions_per_table: int = Field(default=25, ge=5, le=100, description="Total number of Q&A pairs to generate")
+    questions_per_table: int = Field(default=25, ge=5, le=100, description="Total number of Q&A pairs to generate across all tables (NOTE: field name is legacy, represents total not per-table)")
     max_tables: int = Field(default=12, ge=2, le=100, description="Maximum number of tables for auto-discovery")
     include_joins: bool = Field(default=True, description="Include join-based questions")
     difficulty_level: str = Field(default="mixed", description="Question difficulty level")

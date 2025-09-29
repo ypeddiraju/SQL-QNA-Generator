@@ -196,6 +196,13 @@ CRITICAL REQUIREMENTS:
 4. Create REALISTIC business questions that analysts would actually ask
 5. Output MUST be valid JSON array format
 
+QUESTION STYLE REQUIREMENTS:
+- Use NATURAL LANGUAGE - questions should sound like real business conversations
+- AVOID direct table names or column names in questions
+- Frame questions as business problems, not database queries
+- Use business terminology and metrics instead of technical database terms
+- Questions should be intuitive and conversational
+
 BUSINESS CONTEXT: Generate questions as if for a real business analyst working with:
 - Sales data, customer analytics, inventory management
 - Performance metrics, revenue analysis, operational insights
@@ -214,21 +221,72 @@ ANSWER REQUIREMENTS:
 - For metrics, use realistic business terminology
 - If a question cannot be answered from sample data, modify the question appropriately
 
-QUESTION STYLE:
-- Use professional business language
-- Include relevant business metrics and KPIs
-- Frame questions as real analytical needs
-- Use industry-standard terminology
+QUESTION STYLE EXAMPLES (Follow these patterns strictly):
+
+### Sales Analysis:
+- "What's the total revenue for each store?"
+- "Which products have sold the most units?"
+- "What's the average transaction value per store?"
+- "Show monthly sales trends for the current year"
+- "Which payment methods are most popular?"
+
+### Customer Analysis:
+- "What's the average customer lifetime value by loyalty tier?"
+- "Which customers haven't made a purchase in the last 6 months?"
+- "Show customer distribution by state"
+- "What's the average age of customers by loyalty tier?"
+- "Which customers have written the most reviews?"
+
+### Inventory & Operations:
+- "Which products are running low on stock (below reorder point)?"
+- "What's the inventory value for each store?"
+- "Which suppliers have the highest rated products?"
+- "Show employee performance by transaction count"
+- "What's the average review rating for each product category?"
+
+### Revenue & Profitability Analysis:
+- "Calculate profit margins for each product category by store"
+- "Which store-product combinations generate the highest revenue?"
+- "What's the seasonal revenue trend for each product category?"
+- "Calculate customer acquisition cost vs lifetime value by region"
+- "Analyze the impact of promotions on sales volume and revenue"
+
+### Customer Segmentation & Behavior:
+- "Segment customers by purchase frequency and average order value"
+- "Which products are frequently bought together (market basket analysis)?"
+- "Calculate customer churn rate by loyalty tier and registration cohort"
+- "Identify customers who have upgraded their loyalty tier this year"
+- "Analyze purchase patterns: weekend vs weekday shopping behavior"
+
+### Inventory Optimization:
+- "Calculate inventory turnover rate for each product by store"
+- "Identify slow-moving inventory that should be discounted"
+- "Analyze seasonal demand patterns for inventory planning"
+- "Calculate optimal reorder quantities based on sales velocity"
+- "Find products with highest stockout risk across stores"
+
+### Employee & Operations Analysis:
+- "Calculate sales per employee by store and time period"
+- "Analyze employee productivity: transactions processed per hour"
+- "Compare store performance relative to store size and employee count"
+- "Identify peak sales hours and optimal staffing requirements"
+- "Calculate employee retention rates by department and store"
+
+AVOID these technical patterns:
+- Direct table references: "Show all records from customers table"
+- Column mentions: "List customer_id and order_date"
+- SQL-like language: "JOIN customers with orders"
+- Database terminology: "Select * from products"
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON array where each object has exactly two keys:
-- "question": The natural language business question
+- "question": The natural language business question (following examples above)
 - "expected_answer": The correct answer based on sample data
 
 Example:
 [
   {
-    "question": "What's the total sales revenue for the Technology department?",
+    "question": "What's the total revenue for each store?",
     "expected_answer": "$125,000"
   }
 ]"""
@@ -250,10 +308,25 @@ QUESTION TYPES TO PRIORITIZE:
 - Direct attribute queries
 - Minimal complex joins (only when target percentage requires)
 
+EASY LEVEL EXAMPLES (Natural Language):
+Single Table Questions:
+- "How many customers do we have?"
+- "What's the total number of products?"
+- "Which employees are currently active?"
+- "What's the highest priced item in our catalog?"
+- "How many orders were placed this month?"
+
+Cross-Table Questions (Simple):
+- "What's the total sales revenue?"
+- "Which stores are performing best?"
+- "What's the average order value?"
+- "How many customers are in each loyalty tier?"
+- "Which product categories are most popular?"
+
 COMPLEXITY GUIDELINES:
-- Use straightforward language
+- Use straightforward, conversational language
 - Avoid complex business logic
-- Focus on direct data retrieval
+- Focus on direct business questions
 - Keep questions simple and clear"""
 
         elif difficulty == "medium":
@@ -267,11 +340,28 @@ QUESTION TYPES TO INCLUDE:
 - Moderate join queries
 - Some analytical questions
 
+MEDIUM LEVEL EXAMPLES (Business Focused):
+Single Table Questions:
+- "What's the average product price in our inventory?"
+- "Which employees have exceeded their sales targets?"
+- "Show products that are below reorder level"
+- "What's our monthly revenue growth rate?"
+- "Which customers have the highest purchase frequency?"
+
+Cross-Table Questions (Analytics):
+- "What's the total revenue by product category?"
+- "Which stores have the highest customer satisfaction?"
+- "Show employee performance by department"
+- "What's the average order value by customer segment?"
+- "Which suppliers provide the most popular products?"
+- "Calculate monthly sales trends by region"
+- "What's the inventory turnover rate by store?"
+
 COMPLEXITY GUIDELINES:
-- Mix simple and moderately complex questions
-- Include some business logic
-- Balance single-table and join queries
-- Use clear but more varied language"""
+- Mix simple and moderately complex business questions
+- Include analytical reasoning
+- Balance single-table and multi-table analysis
+- Use clear business terminology"""
 
         elif difficulty == "hard":
             return """
@@ -285,11 +375,30 @@ QUESTION TYPES TO PRIORITIZE:
 - Questions requiring multiple join paths
 - Business intelligence style questions
 
+HARD LEVEL EXAMPLES (Executive Analytics):
+Single Table Questions:
+- "Calculate year-over-year revenue growth by quarter"
+- "What's the customer lifetime value distribution?"
+- "Show seasonal demand patterns for the past two years"
+- "Which products have declining sales velocity?"
+
+Cross-Table Questions (Strategic Insights):
+- "Calculate profit margins for each product category by store location"
+- "Which customer segments have the highest retention rates across regions?"
+- "Analyze sales performance: top vs underperforming store combinations"
+- "Calculate customer acquisition cost by marketing channel and geographic region"
+- "Which employee-store combinations generate the highest revenue per transaction?"
+- "Identify products with declining sales trends across multiple store locations"
+- "Calculate inventory turnover rates and identify slow-moving stock by category and location"
+- "Analyze customer churn patterns by loyalty tier and purchase frequency cohorts"
+- "Compare store performance relative to market size and local competition density"
+- "Which products are frequently bought together across different customer segments?"
+
 COMPLEXITY GUIDELINES:
-- Emphasize complex relational queries
-- Use sophisticated business logic
-- Create questions requiring multiple steps
-- Include advanced analytical concepts"""
+- Emphasize executive-level strategic questions
+- Use sophisticated business intelligence terminology
+- Create questions requiring multi-dimensional analysis
+- Include advanced KPIs and business metrics"""
 
         else:  # mixed or default
             return """
@@ -304,11 +413,33 @@ QUESTION TYPES TO INCLUDE:
 - Questions about relationships between entities
 - Analytical and business logic questions
 
+MIXED LEVEL EXAMPLES (Comprehensive Business Suite):
+
+BASIC BUSINESS QUERIES (Conversational):
+- "How many active customers do we have?"
+- "What's our total inventory count?"
+- "Which stores are currently operating?"
+- "What's the average product price?"
+
+INTERMEDIATE ANALYTICS (Business Intelligence):
+- "What's the total revenue by product category?"
+- "Which customers have the highest lifetime value?"
+- "Show monthly sales trends for this year"
+- "What's the average order value by customer type?"
+- "Which employees are top performers by sales volume?"
+
+ADVANCED INSIGHTS (Strategic Analysis):
+- "Calculate customer lifetime value by acquisition channel and geographic region"
+- "Analyze cross-selling opportunities: which products are frequently bought together?"
+- "Compare store performance metrics: sales efficiency vs customer satisfaction"
+- "Which customer segments show the highest retention and growth potential?"
+- "Calculate seasonal demand forecasting based on historical sales patterns"
+
 COMPLEXITY GUIDELINES:
-- Create diverse difficulty levels
-- Balance all question types
-- Include both simple and sophisticated queries
-- Vary language complexity appropriately"""
+- Create diverse business scenarios from operational to strategic
+- Balance all question complexity levels naturally
+- Include conversational, analytical, and strategic business language
+- Vary from simple reporting to complex business intelligence"""
     
     def _create_human_prompt(self, context: str, table_names: List[str]) -> str:
         """Create human prompt with database context and difficulty-specific instructions."""
@@ -326,38 +457,105 @@ DIFFICULTY LEVEL: {self.config.difficulty_level.upper()}
 TARGET REQUIREMENTS:
 - Generate EXACTLY {self.config.min_questions} questions  
 - Ensure at least {target_joins} questions ({self.config.target_join_percentage}%) require joining tables: {', '.join(table_names)}
+- CRITICAL: 60% of questions must be VISUALIZATION-FOCUSED (perfect for charts, graphs, dashboards)
 - All answers must be based ONLY on the sample data provided above
 - Return ONLY the JSON array, no additional text or explanation
 
-CRITICAL: For CROSS-TABLE questions, use these business-realistic patterns that will be detected as joins:
+🎯 VISUALIZATION QUESTION REQUIREMENTS (60% of total questions):
+Generate questions that are perfect for creating:
+- Line Charts: "Daily sales trends over the past year"
+- Bar Charts: "Top 10 best-selling products by revenue"  
+- Pie Charts: "Customer distribution by loyalty tier"
+- Heatmaps: "Sales performance by day of week and hour"
+- Geographic Maps: "Sales density by state/region"
+- Comparison Charts: "Compare this year vs last year sales by category"
+- Distribution Charts: "Distribution of customer lifetime values"
+- Time Series: "Monthly revenue breakdown by product category"
 
-SALES & REVENUE ANALYSIS:
-- "What's the total revenue by product category?"
-- "Which stores generate the highest sales per square foot?"
-- "Show monthly sales trends by region"
-- "Calculate average transaction value by customer segment"
+CRITICAL: Generate questions EXACTLY like these examples. 60% must be VISUALIZATION-FOCUSED:
 
-CUSTOMER ANALYTICS:
-- "What's the customer lifetime value by loyalty tier?"
-- "Which customers have the highest purchase frequency?"
-- "Show customer distribution by geographic region"
-- "Calculate customer acquisition cost by marketing channel"
+BASIC SALES ANALYSIS:
+- "What's the total revenue for each store?"
+- "Which products have sold the most units?"
+- "What's the average transaction value per store?"
+- "Show monthly sales trends for the current year"
+- "Which payment methods are most popular?"
+
+CUSTOMER ANALYSIS:
+- "What's the average customer lifetime value by loyalty tier?"
+- "Which customers haven't made a purchase in the last 6 months?"
+- "Show customer distribution by state"
+- "What's the average age of customers by loyalty tier?"
+- "Which customers have written the most reviews?"
 
 INVENTORY & OPERATIONS:
-- "What's the inventory turnover rate by product category?"
-- "Which suppliers have the highest-rated products?"
-- "Show employee productivity metrics by store location"
-- "Calculate profit margins by product and store combination"
+- "Which products are running low on stock (below reorder point)?"
+- "What's the inventory value for each store?"
+- "Which suppliers have the highest rated products?"
+- "Show employee performance by transaction count"
+- "What's the average review rating for each product category?"
 
-PERFORMANCE METRICS:
-- "Compare store performance relative to market size"
-- "Which employee-department combinations achieve highest sales?"
-- "Analyze seasonal demand patterns across product categories"
+ADVANCED ANALYTICS:
+- "Calculate profit margins for each product category by store"
+- "Which store-product combinations generate the highest revenue?"
+- "What's the seasonal revenue trend for each product category?"
+- "Calculate customer acquisition cost vs lifetime value by region"
+- "Segment customers by purchase frequency and average order value"
+- "Which products are frequently bought together (market basket analysis)?"
+- "Calculate customer churn rate by loyalty tier and registration cohort"
+- "Analyze employee productivity: transactions processed per hour"
+- "Calculate inventory turnover rate for each product by store"
 
-AVOID these patterns for JOIN questions (may not be detected as cross-table):
-- Simple entity lists: "List all customers"
-- Single-table counts: "How many products do we have?"
-- Basic lookups: "What's the price of Product X?"
+VISUALIZATION-FOCUSED (PRIORITIZE - 60% OF QUESTIONS):
+- "Daily sales trends over the past year"
+- "Monthly revenue breakdown by product category"
+- "Top 10 best-selling products by revenue"
+- "Store ranking by total transactions processed"
+- "Revenue composition by payment method across stores"
+- "Distribution of customer lifetime values"
+- "Customer distribution by loyalty tier"
+- "Sales performance by day of week and hour of day"
+- "Product price distribution across categories"
+- "Quarterly revenue trends with year-over-year comparison"
+- "Store locations with revenue bubble sizes"
+- "Sales density by state/region"
+- "Compare sales performance across top 5 stores"
+
+### VISUALIZATION-FOCUSED QUESTIONS (PRIORITIZE THESE - 60% of questions should be visualization-ready):
+
+### Time Series Visualizations:
+- "Daily sales trends over the past year"
+- "Monthly revenue breakdown by product category"
+- "Compare sales performance across top 5 stores"
+- "Quarterly revenue trends with year-over-year comparison"
+- "Sales performance by day of week and hour of day"
+
+### Comparison Visualizations:
+- "Top 10 best-selling products by revenue"
+- "Store ranking by total transactions processed"
+- "Revenue composition by payment method across stores"
+- "Compare this year vs last year sales by category"
+- "Revenue breakdown showing impact of discounts and taxes"
+
+### Distribution Visualizations:
+- "Distribution of customer lifetime values"
+- "Product price distribution across categories"
+- "Correlation between store size and revenue"
+- "Market share by product category"
+- "Customer distribution by loyalty tier"
+
+### Geographic Visualizations:
+- "Store locations with revenue bubble sizes"
+- "Sales density by state/region"
+- "Revenue per square mile by region"
+- "Customer distribution relative to store locations"
+- "Sales within different radius from stores"
+
+AVOID these technical/database patterns:
+- Direct table references: "Show all records from customers table"
+- Column names: "List customer_id and order_date"
+- SQL terminology: "JOIN customers with orders"
+- Technical language: "SELECT * FROM products WHERE..."
 
 Generate {self.config.min_questions} question-answer pairs now:"""
     
@@ -368,93 +566,116 @@ Generate {self.config.min_questions} question-answer pairs now:"""
         if difficulty == "easy":
             return f"""
 
-DIFFICULTY LEVEL: EASY - Basic Business Queries
+DIFFICULTY LEVEL: EASY - Basic Business Questions (Natural Language)
 TARGET: {self.config.target_join_percentage}% cross-table analysis questions
 
-SINGLE-TABLE EXAMPLES (Basic Reporting):
-- "What's the total number of customers?"
-- "List all product categories"
-- "What's the highest price in our catalog?"
-- "Show all active employees"
-- "What's the total inventory value?"
+SINGLE-TABLE EXAMPLES (Simple Business Questions):
+- "How many customers do we have?"
+- "What product categories are available?"
+- "What's our most expensive item?"
+- "Which employees are currently working?"
+- "What's our total inventory worth?"
 
-CROSS-TABLE EXAMPLES (Simple Analytics):
-- "Which products belong to the Electronics category?"
-- "What's the total sales by store location?"
-- "List employees and their department names"
-- "Show customers and their loyalty tier status"
-- "How many orders were placed by each customer?"
+CROSS-TABLE EXAMPLES (Basic Analytics + Visualization Focus):
+- "What's the total sales revenue?"
+- "Which stores are performing best?"
+- "Show employee names and their departments"
+- "Customer distribution by loyalty tier"
+- "Daily sales trends for the current month"
+- "Top 5 best-selling products by revenue"
+- "Revenue breakdown by payment method"
+- "Sales performance by store location"
 
-FOCUS: Basic business reporting with straightforward joins and simple aggregations."""
+FOCUS: Conversational business questions that sound natural and avoid technical database language."""
         elif difficulty == "medium":
             return f"""
 
-DIFFICULTY LEVEL: MEDIUM - Business Intelligence & Analytics
+DIFFICULTY LEVEL: MEDIUM - Business Analytics (Natural Conversations)
 TARGET: {self.config.target_join_percentage}% cross-table analysis with moderate complexity
 
-SINGLE-TABLE EXAMPLES (Intermediate Reporting):
-- "What's the average product price?"
-- "Which employee has the highest sales target?"
-- "Show monthly revenue trends"
-- "What's the inventory turnover rate?"
-- "List top 5 customers by total purchases"
+SINGLE-TABLE EXAMPLES (Business Metrics):
+- "What's the average price of our products?"
+- "Which employee has the highest sales goals?"
+- "Show our monthly revenue growth"
+- "How quickly does our inventory turn over?"
+- "Who are our top 5 customers by spending?"
 
-CROSS-TABLE EXAMPLES (Business Analytics):
-- "What's the total revenue by product category?"
-- "Which stores have the highest customer satisfaction ratings?"
-- "Show employee performance metrics by department"
-- "What's the average order value by customer segment?"
-- "Calculate monthly sales trends by store location"
-- "Which product categories generate the most profit?"
+CROSS-TABLE EXAMPLES (Analytics + Visualization Focus):
+- "Monthly revenue breakdown by product category"
+- "Store ranking by customer satisfaction scores"
+- "Employee performance metrics by department"
+- "Average order value distribution by customer segment"
+- "Sales trends comparison across store locations"
+- "Profit margin visualization by product category"
+- "Inventory value distribution across stores"
+- "Supplier rating comparison chart"
+- "Top 10 customers by total purchase value"
+- "Revenue composition by payment method across stores"
 
-FOCUS: Practical business intelligence questions with meaningful aggregations and grouping."""
+FOCUS: Natural business conversations that an analyst would actually have, avoiding technical jargon."""
         elif difficulty == "hard":
             return f"""
 
-DIFFICULTY LEVEL: HARD - Advanced Business Analytics & Complex Insights
+DIFFICULTY LEVEL: HARD - Strategic Business Intelligence (Executive Conversations)
 TARGET: {self.config.target_join_percentage}% complex multi-table analysis with sophisticated business logic
 
-SINGLE-TABLE EXAMPLES (Advanced Metrics):
-- "Calculate year-over-year growth rate for revenue"
-- "What's the customer lifetime value distribution?"
-- "Show seasonal demand patterns by month"
+SINGLE-TABLE EXAMPLES (Strategic Metrics):
+- "How has our revenue grown year-over-year?"
+- "What's the spread of customer lifetime values?"
+- "When do we see seasonal buying patterns?"
 
-CROSS-TABLE EXAMPLES (Executive-Level Analytics):
-- "Calculate profit margins by product category and store location"
-- "Which customer segments have the highest retention rates?"
-- "Analyze sales performance: top-performing vs underperforming stores"
-- "Calculate customer acquisition cost by marketing channel and region"
-- "Which employee-store combinations generate the highest revenue per transaction?"
-- "Identify products with declining sales trends across multiple stores"
-- "Calculate inventory turnover rates and identify slow-moving stock by location"
-- "Analyze customer churn patterns by loyalty tier and purchase frequency"
-- "Compare store performance relative to market size and competition density"
+CROSS-TABLE EXAMPLES (Executive-Level + Strong Visualization Focus):
+- "Calculate profit margins for each product category by store"
+- "Customer churn rate visualization by loyalty tier and registration cohort"
+- "Store performance comparison: sales efficiency vs customer satisfaction"
+- "Customer acquisition cost vs lifetime value by region"
+- "Revenue trends analysis across employee-store combinations"
+- "Seasonal demand patterns visualization for inventory planning"
+- "Inventory turnover rate heatmap by product and store location"
+- "Customer segmentation analysis: purchase frequency and average order value"
+- "Geographic revenue density map by state/region"
+- "Market basket analysis: products frequently bought together"
+- "Quarterly revenue trends with year-over-year comparison"
+- "Employee productivity dashboard: transactions processed per hour"
+- "Sales performance by day of week and hour of day"
+- "Distribution of customer lifetime values across segments"
+- "Revenue composition breakdown showing impact of discounts and taxes"
 
-FOCUS: Executive dashboard queries, complex KPIs, multi-dimensional analysis, and strategic business insights."""
+FOCUS: Strategic executive conversations, sophisticated business questions that sound natural and avoid database terminology."""
         else:  # mixed
             return f"""
 
-DIFFICULTY LEVEL: MIXED - Comprehensive Business Question Suite
+DIFFICULTY LEVEL: MIXED - Comprehensive Business Conversations
 TARGET: {self.config.target_join_percentage}% cross-table analysis with varied complexity levels
 
-INCLUDE ALL LEVELS:
+INCLUDE ALL LEVELS (Natural Language Examples):
 
-BASIC BUSINESS QUERIES:
-- "How many active customers do we have?"
-- "What's our total inventory count?"
-- "List all store locations"
+BASIC BUSINESS QUESTIONS (Conversational):
+- "How many customers are currently active?"
+- "What's our total product count in inventory?"
+- "Where are all our stores located?"
+- "What's the highest priced item we sell?"
 
-INTERMEDIATE ANALYTICS:
-- "What's the average order value by customer type?"
-- "Show revenue trends by quarter"
-- "Which products have the highest profit margins?"
+INTERMEDIATE ANALYTICS (Business Intelligence):
+- "What's the average order size by customer type?"
+- "How have our quarterly revenues been trending?"
+- "Which products give us the best profit margins?"
+- "What's the total sales revenue for each store?"
+- "Which customers have the highest lifetime value?"
 
-ADVANCED INSIGHTS:
-- "Calculate customer lifetime value by acquisition channel and geographic region"
-- "Analyze cross-selling opportunities: which products are frequently bought together?"
-- "Compare store performance metrics: sales per square foot vs employee productivity"
+ADVANCED INSIGHTS (Strategic Analysis + Visualization Priority):
+- "Customer lifetime value distribution by acquisition channel and geographic region"
+- "Market basket analysis visualization: products frequently bought together"
+- "Store performance dashboard: sales efficiency vs customer satisfaction correlation"
+- "Customer retention and growth potential heatmap by segment"
+- "Seasonal sales patterns visualization for demand forecasting"
+- "Employee-store performance matrix showing revenue generation impact"
+- "Geographic sales density map with store location revenue bubbles"
+- "Time series analysis: daily sales trends over the past year"
+- "Customer distribution pie chart by loyalty tier and state"
+- "Revenue waterfall chart showing impact of promotions and discounts"
 
-FOCUS: Comprehensive business intelligence suite covering operational reporting, tactical analytics, and strategic insights."""
+FOCUS: Natural business conversations spanning from simple operational questions to complex strategic analysis."""
     
     def _parse_llm_response(self, response_content: str) -> List[Dict[str, str]]:
         """Parse and validate LLM response."""

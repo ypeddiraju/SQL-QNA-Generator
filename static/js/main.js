@@ -861,7 +861,7 @@ function getGenerationOptions() {
 
     return {
         tables: tables,
-        questions_per_table: totalQuestions,  // This is actually total questions, not per table
+        questions_per_table: totalQuestions,  // Total questions across all tables (field name is legacy, should be 'total_questions')
         max_tables: maxTables,
         include_joins: document.getElementById('includeJoins')?.checked || true,
         difficulty_level: document.querySelector('input[name="difficulty"]:checked')?.value || 'mixed',

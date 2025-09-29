@@ -871,6 +871,7 @@ async def api_generate_dataset(request: SimpleGenerationRequest):
             
             # Update config for generation
             active_config.target_join_percentage = target_join_percentage
+            active_config.min_questions = request.questions_per_table  # Use the requested number of questions
             
             llm_generator = LLMGenerator(active_config)
             qna_dataset, token_usage = llm_generator.generate_qna_dataset(
@@ -1499,8 +1500,9 @@ async def generate_dataset_demo(request: SimpleGenerationRequest):
             default_percentage=config.target_join_percentage
         )
         
-        # Update config with difficulty-based join percentage
+        # Update config with difficulty-based join percentage and question count
         config.target_join_percentage = target_join_percentage
+        config.min_questions = request.questions_per_table  # Use the requested number of questions
         
         logger.info(f"Using difficulty level '{request.difficulty_level}' with {target_join_percentage}% target join percentage")
         

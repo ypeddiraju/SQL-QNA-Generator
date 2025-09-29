@@ -4,8 +4,10 @@ A comprehensive business intelligence test data generator that connects to SQL S
 
 ## 🚀 Features
 
-- **🏢 Business-Focused Questions**: Generates realistic business intelligence queries for sales analysis, customer analytics, inventory management, and performance metrics
-- **📊 Difficulty Levels**: Four complexity levels from basic reporting to advanced executive analytics
+- **🗣️ Natural Language Questions**: Generates conversational business questions without technical database terminology
+- **📊 Visualization-Focused**: 60% of questions are designed for charts, graphs, and dashboards
+- **🏢 Business-Focused Analytics**: Realistic BI queries for sales analysis, customer analytics, inventory management, and performance metrics
+- **� Four Difficulty Levels**: From basic reporting to advanced executive analytics with strategic insights
 - **🔍 Automated Schema Discovery**: Intelligent database analysis with relationship detection
 - **🤝 Relational Data Sampling**: Smart sampling across connected tables for consistent test data
 - **🤖 AI-Powered Generation**: Uses GPT-4 to create diverse, contextually relevant business questions
@@ -16,29 +18,57 @@ A comprehensive business intelligence test data generator that connects to SQL S
 
 ## 🎯 Business Question Types Generated
 
-### **📈 Sales & Revenue Analysis**
-- "What's the total revenue by product category?"
-- "Which stores generate the highest sales per square foot?"
-- "Calculate monthly sales trends by region"
-- "Show profit margins by product and store combination"
+### **📈 Sales Analysis** (Natural Language)
+- "What's the total revenue for each store?"
+- "Which products have sold the most units?"
+- "What's the average transaction value per store?"
+- "Show monthly sales trends for the current year"
+- "Which payment methods are most popular?"
 
-### **👥 Customer Analytics**
-- "What's the customer lifetime value by loyalty tier?"
-- "Which customer segments have the highest retention rates?"
-- "Calculate customer acquisition cost by marketing channel"
-- "Show customer distribution by geographic region"
+### **👥 Customer Analysis** (Conversational)
+- "What's the average customer lifetime value by loyalty tier?"
+- "Which customers haven't made a purchase in the last 6 months?"
+- "Show customer distribution by state"
+- "What's the average age of customers by loyalty tier?"
+- "Which customers have written the most reviews?"
 
-### **📦 Inventory & Operations**
-- "What's the inventory turnover rate by product category?"
-- "Which suppliers have the highest-rated products?"
-- "Calculate optimal reorder quantities based on sales velocity"
-- "Show employee productivity metrics by store location"
+### **📦 Inventory & Operations** (Business Focused)
+- "Which products are running low on stock (below reorder point)?"
+- "What's the inventory value for each store?"
+- "Which suppliers have the highest rated products?"
+- "Show employee performance by transaction count"
+- "What's the average review rating for each product category?"
 
-### **💼 Executive Insights** (Hard Difficulty)
-- "Analyze cross-selling opportunities: which products are frequently bought together?"
-- "Calculate customer churn rate by loyalty tier and registration cohort"
-- "Compare store performance relative to market size and employee count"
-- "Identify seasonal demand patterns for inventory planning"
+### **💼 Advanced Analytics** (Executive Level)
+- "Calculate profit margins for each product category by store"
+- "Which store-product combinations generate the highest revenue?"
+- "What's the seasonal revenue trend for each product category?"
+- "Calculate customer acquisition cost vs lifetime value by region"
+- "Segment customers by purchase frequency and average order value"
+- "Which products are frequently bought together (market basket analysis)?"
+
+### **📊 Visualization-Focused Questions** (60% Priority)
+*Perfect for charts, graphs, and dashboards*
+
+#### Time Series Visualizations:
+- "Daily sales trends over the past year"
+- "Monthly revenue breakdown by product category"
+- "Quarterly revenue trends with year-over-year comparison"
+
+#### Comparison Visualizations:
+- "Top 10 best-selling products by revenue"
+- "Store ranking by total transactions processed"
+- "Revenue composition by payment method across stores"
+
+#### Distribution Visualizations:
+- "Distribution of customer lifetime values"
+- "Customer distribution by loyalty tier"
+- "Product price distribution across categories"
+
+#### Geographic Visualizations:
+- "Sales density by state/region"
+- "Store locations with revenue bubble sizes"
+- "Revenue per square mile by region"
 
 ## 🔧 Requirements
 
@@ -174,12 +204,20 @@ Both database types require:
 
 ### 🎯 Difficulty Level Configuration
 
-| Level | Join % | Description | Example Questions |
-|-------|--------|-------------|-------------------|
-| **Easy** | 20% | Basic business reporting | "What's our total customer count?", "List all product categories" |
-| **Medium** | 40% | Business intelligence & analytics | "What's the total revenue by product category?", "Show employee performance by department" |
-| **Hard** | 70% | Advanced analytics & executive insights | "Calculate profit margins by category and store", "Analyze customer churn patterns by loyalty tier" |
-| **Mixed** | 40% | Comprehensive suite of all levels | Balanced mix from operational to strategic questions |
+| Level | Join % | Visualization Focus | Description | Example Questions |
+|-------|--------|-------------------|-------------|-------------------|
+| **Easy** | 20% | 60% | Basic business reporting with simple charts | "How many customers do we have?", "Customer distribution by loyalty tier" |
+| **Medium** | 40% | 60% | Business analytics with meaningful visualizations | "Monthly revenue breakdown by product category", "Store ranking by customer satisfaction" |
+| **Hard** | 70% | 60% | Advanced analytics with complex visualizations | "Customer churn rate visualization by loyalty tier", "Inventory turnover heatmap by product and store" |
+| **Mixed** | 40% | 60% | Comprehensive suite spanning all complexity levels | Balanced mix from simple charts to executive dashboards |
+
+### 📊 Natural Language Focus
+
+All questions are generated using natural, conversational language that:
+- **Avoids technical database terminology** (no table names, column references)
+- **Sounds like real business conversations** analysts would have
+- **Uses business metrics and KPIs** instead of technical terms
+- **Perfect for testing Natural Language to SQL** systems
 
 ## 🚀 Usage
 
@@ -281,25 +319,58 @@ SQL_SERVER_CONNECTION_STRING=your_connection_string
 DIFFICULTY_LEVEL=medium  # Default difficulty for all generations
 ```
 
-## 📋 Sample Business Intelligence Output
+## 📋 Sample Natural Language Output
 
+### Basic Analytics Questions
 ```json
 [
   {
-    "question": "What is the total revenue generated by each product category this quarter?",
-    "expected_answer": "Electronics: $2,450,000, Clothing: $1,890,000, Home & Garden: $1,230,000"
+    "question": "What's the total revenue for each store?",
+    "expected_answer": "Downtown Store: $2,450,000, Mall Location: $1,890,000, Airport Branch: $1,230,000"
   },
   {
-    "question": "Which sales representatives have exceeded their quarterly targets?",
-    "expected_answer": "Sarah Johnson (125% of target), Mike Chen (118% of target), Lisa Rodriguez (110% of target)"
+    "question": "Which products have sold the most units?",
+    "expected_answer": "Wireless Headphones (2,540 units), Smart Watch (1,890 units), Phone Case (1,650 units)"
   },
   {
-    "question": "Calculate the customer lifetime value for our top 10 customers by purchase frequency",
-    "expected_answer": "Premium customers averaging $15,400 CLV with 8.5 annual purchases"
+    "question": "Show customer distribution by loyalty tier",
+    "expected_answer": "Gold: 45%, Silver: 35%, Bronze: 20%"
+  }
+]
+```
+
+### Visualization-Ready Questions
+```json
+[
+  {
+    "question": "Daily sales trends over the past year",
+    "expected_answer": "Peak sales in December ($450K), lowest in February ($280K), steady growth Q2-Q3"
   },
   {
-    "question": "What are the profit margins by product category and sales channel?",
-    "expected_answer": "Online Electronics: 24%, Retail Clothing: 18%, Wholesale Home: 15%"
+    "question": "Top 10 best-selling products by revenue",
+    "expected_answer": "Premium Laptop ($890K), Gaming Console ($670K), Wireless Speaker ($450K)..."
+  },
+  {
+    "question": "Sales performance by day of week and hour of day",
+    "expected_answer": "Peak: Saturday 2-4 PM ($45K/hr), Lowest: Monday 6-8 AM ($8K/hr)"
+  }
+]
+```
+
+### Advanced Business Intelligence
+```json
+[
+  {
+    "question": "Calculate profit margins for each product category by store",
+    "expected_answer": "Electronics: Downtown 24%, Mall 18%; Clothing: Downtown 32%, Mall 28%"
+  },
+  {
+    "question": "Which products are frequently bought together (market basket analysis)?",
+    "expected_answer": "Phone + Case (78%), Laptop + Mouse (65%), Gaming Console + Controller (89%)"
+  },
+  {
+    "question": "Customer churn rate by loyalty tier and registration cohort",
+    "expected_answer": "Gold Tier 2024: 5%, Silver Tier 2024: 12%, Bronze Tier 2024: 25%"
   }
 ]
 ```
@@ -316,32 +387,36 @@ DIFFICULTY_LEVEL=medium  # Default difficulty for all generations
 
 - **`generate_dataset.py`**: Main CLI application and orchestration
 - **`src/config.py`**: Configuration management from environment variables
-- **`src/database_connector.py`**: SQL Server connectivity and schema discovery
-- **`src/llm_generator.py`**: LangChain/OpenAI integration for Q&A generation
+- **`src/database_connector.py`**: SQL Server/MySQL connectivity and schema discovery
+- **`src/llm_generator.py`**: Enhanced LangChain/OpenAI integration with natural language focus and visualization optimization
 - **`src/exceptions.py`**: Custom exception classes
+- **`api/main.py`**: FastAPI REST service with async processing
 
 ## Workflow
 
-1. **Database Connection**: Connects to SQL Server using provided credentials
+1. **Database Connection**: Connects to SQL Server or MySQL using provided credentials
 2. **Schema Discovery**: Analyzes table structures and foreign key relationships
 3. **Relational Sampling**: Fetches consistent sample data across related tables
-4. **Context Building**: Constructs comprehensive context for the LLM
-5. **Q&A Generation**: Uses GPT-4 to generate diverse questions and accurate answers
-6. **Validation**: Ensures output quality and join percentage targets
-7. **Output**: Saves structured JSON dataset for testing
+4. **Context Building**: Constructs comprehensive business context for the LLM
+5. **Natural Language Q&A Generation**: Uses GPT-4 to generate conversational business questions with 60% visualization focus
+6. **Quality Validation**: Ensures natural language style, visualization readiness, and join percentage targets
+7. **Output**: Saves structured JSON dataset optimized for Natural Language to SQL testing
 
 ## 🎯 Business Intelligence Capabilities
 
 ### Question Categories Generated
-- **📊 Operational Analytics**: Daily operations, inventory, basic reporting
-- **💼 Management Insights**: Performance metrics, departmental analysis, trends
-- **🏆 Executive Intelligence**: Strategic analysis, profitability, market insights
-- **🔄 Cross-Functional**: Multi-department analysis requiring complex joins
+- **📊 Operational Analytics**: Daily operations, inventory, basic reporting (natural language style)
+- **💼 Management Insights**: Performance metrics, departmental analysis, trends (visualization-ready)
+- **🏆 Executive Intelligence**: Strategic analysis, profitability, market insights (dashboard-perfect)
+- **🔄 Cross-Functional**: Multi-department analysis requiring complex joins (chart-optimized)
+- **📈 Visualization-Focused**: 60% of all questions designed for specific chart types (line, bar, pie, heatmap, geographic)
 
 ### Performance Metrics
 - **Generation Speed**: < 90 seconds for comprehensive datasets
-- **Question Quality**: 15+ business-relevant Q&A pairs per table
+- **Question Quality**: 15+ natural language Q&A pairs per table
+- **Visualization Focus**: 60% of questions optimized for charts and dashboards
 - **Join Coverage**: 20%-70% based on difficulty level
+- **Natural Language**: 100% conversational, business-focused questions
 - **Answer Accuracy**: 95%+ based on actual database sampling
 
 ### Industry Applications
