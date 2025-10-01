@@ -435,28 +435,69 @@ The application includes comprehensive error handling for:
 - JSON validation problems
 - Configuration errors
 
-## Development
+## 🧪 Testing & Development
+
+### Test Structure
+
+The project has a comprehensive test suite organized into three categories:
+
+```
+tests/
+├── unit/                    # Unit tests for individual components
+│   ├── test_wrapper.py      # Database connector wrapper tests
+│   ├── test_schema_fix.py   # Schema qualification tests
+│   └── ...
+├── integration/             # Integration tests for full workflows
+│   ├── test_api_*.py        # API endpoint tests
+│   ├── test_*connection*.py # Database connection tests
+│   ├── test_*discovery*.py  # Database discovery tests
+│   └── test_mysql*.py       # MySQL-specific tests
+└── debug/                   # Debug utilities and diagnostic tools
+    ├── check_tables.py      # Database table verification
+    ├── debug_schema.py      # Schema investigation tools
+    └── ...
+```
 
 ### Running Tests
 
+Use the built-in test runner:
+
 ```bash
-# Install development dependencies
-pip install pytest pytest-cov
+# Run all tests
+python run_tests.py
 
-# Run tests
-pytest tests/ -v
+# Run specific test suites
+python run_tests.py unit           # Unit tests only
+python run_tests.py integration    # Integration tests only  
+python run_tests.py debug          # Debug utilities only
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
+# Run specific test file
+python run_tests.py -f test_wrapper          # Finds in any test directory
+python run_tests.py -f check_tables         # Run debug utility
 ```
 
-### Code Quality
+### Manual Test Execution
+
+You can also run tests directly:
 
 ```bash
-# Format code
+# Run a specific test
+python tests/unit/test_wrapper.py
+
+# Run debug utilities
+python tests/debug/check_tables.py
+```
+
+### Development Environment
+
+```bash
+# Install development dependencies (if using pytest)
+pip install pytest pytest-cov
+
+# Code formatting
 black .
 
-# Lint code  
+# Linting
 flake8 src/ tests/
 ```
 

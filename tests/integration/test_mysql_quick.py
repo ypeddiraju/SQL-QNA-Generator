@@ -8,7 +8,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from src.config import Config
 from src.database_mysql import MySQLConnector

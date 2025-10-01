@@ -79,3 +79,15 @@ class DatabaseConnector:
             Dictionary mapping table names to their sample data
         """
         return self._connector.get_relational_sample(primary_table, all_tables, sample_size)
+    
+    def resolve_table_names(self, table_names: List[str]) -> List[str]:
+        """
+        Resolve unqualified table names to their fully qualified equivalents.
+        
+        Args:
+            table_names: List of table names (qualified or unqualified)
+            
+        Returns:
+            List of fully qualified table names
+        """
+        return self._connector.resolve_table_names(table_names)

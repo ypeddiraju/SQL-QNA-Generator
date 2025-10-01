@@ -29,7 +29,8 @@ from api.models import (
     HealthResponse, ErrorResponse, AsyncJobResponse,
     DatabaseConfig, OpenAIConfig, GenerationConfig, SimpleGenerationRequest, SimpleDiscoveryRequest
 )
-from src.database_connector import DatabaseConnector
+from src.database_factory import DatabaseConnectorFactory
+from src.database_base import DatabaseConnectorBase
 from src.llm_generator import LLMGenerator
 from src.config import Config
 from src.exceptions import QNAGeneratorError, DatabaseConnectionError, LLMGenerationError
@@ -208,7 +209,7 @@ async def test_database_connection_with_config(request: dict):
         logger.info(f"Testing {config.db_type} database connection to {config.db_server}")
         
         # Initialize database connector
-        db_connector = DatabaseConnector(config)
+        db_connector = DatabaseConnectorFactory.create_connector(config)
         
         # Test connection
         if db_connector.test_connection():
@@ -330,7 +331,7 @@ async def test_database_connection():
         logger.info(f"Testing database connection with timeouts: connection={global_config.db_connection_timeout}s, login={global_config.db_login_timeout}s")
         
         # Initialize database connector with global config
-        db_connector = DatabaseConnector(global_config)
+        db_connector = DatabaseConnectorFactory.create_connector(global_config)
         
         # Test connection with retry logic
         if db_connector.test_connection():
@@ -491,7 +492,7 @@ async def discover_database(request: DiscoveryRequest):
     config = create_config_from_request(request.database_config)
     
     # Initialize database connector
-    db_connector = DatabaseConnector(config)
+    db_connector = DatabaseConnectorFactory.create_connector(config)
     
     # Test connection
     if not db_connector.test_connection():
@@ -578,7 +579,7 @@ async def generate_dataset(request: GenerationRequest):
         config.output_file = request.generation_config.output_file
     
     # Initialize connectors
-    db_connector = DatabaseConnector(config)
+    db_connector = DatabaseConnectorFactory.create_connector(config)
     llm_generator = LLMGenerator(config)
     
     # Test database connection
@@ -617,8 +618,9 @@ async def generate_dataset(request: GenerationRequest):
             
         logger.info(f"Auto-discovered {len(filtered_tables)} tables, selected {len(target_tables)} most connected tables for generation")
     else:
-        target_tables = request.tables
-        logger.info(f"Using specified tables: {target_tables}")
+        # Resolve user-provided table names to fully qualified names
+        target_tables = db_connector.resolve_table_names(request.tables)
+        logger.info(f"Using specified tables (resolved): {target_tables}")
     
     if len(target_tables) < 2:
         raise QNAGeneratorError("At least 2 tables are required for meaningful Q&A generation")
@@ -793,8 +795,9 @@ async def api_generate_dataset(request: SimpleGenerationRequest):
             
             logger.info(f"Auto-discovered {len(filtered_tables)} tables, selected {len(target_tables)} for generation")
         else:
-            target_tables = request.tables
-            logger.info(f"Using specified tables: {target_tables}")
+            # Resolve user-provided table names to fully qualified names
+            target_tables = db_connector.resolve_table_names(request.tables)
+            logger.info(f"Using specified tables (resolved): {target_tables}")
         
         if len(target_tables) < 2:
             raise HTTPException(
@@ -1142,7 +1145,7 @@ async def download_dataset(job_id: str):
 
 
 # Helper functions
-async def discover_all_tables_async(db_connector: DatabaseConnector) -> List[str]:
+async def discover_all_tables_async(db_connector: DatabaseConnectorBase) -> List[str]:
     """Async wrapper for table discovery."""
     try:
         # Use the connector's get_all_tables method instead of direct connection

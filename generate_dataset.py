@@ -22,7 +22,7 @@ import click
 import coloredlogs
 from dotenv import load_dotenv
 
-from src.database_connector import DatabaseConnector
+from src.database_factory import DatabaseConnectorFactory
 from src.llm_generator import LLMGenerator
 from src.config import Config
 from src.exceptions import QNAGeneratorError
@@ -102,7 +102,7 @@ def main(tables: str, discover_all: bool, output: str, sample_size: int, log_lev
             logger.info("Auto-discovering all database tables...")
             # Import here to avoid circular imports
             from discover_database import discover_all_tables
-            db_connector_temp = DatabaseConnector(config)
+            db_connector_temp = DatabaseConnectorFactory.create_connector(config)
             all_tables = discover_all_tables(db_connector_temp)
             table_list = all_tables[:10]  # Limit to first 10 to avoid overwhelming LLM
             logger.info(f"Auto-discovered tables: {table_list}")
@@ -119,7 +119,7 @@ def main(tables: str, discover_all: bool, output: str, sample_size: int, log_lev
         logger.info(f"Processing {len(table_list)} tables: {table_list}")
         
         # Initialize database connector
-        db_connector = DatabaseConnector(config)
+        db_connector = DatabaseConnectorFactory.create_connector(config)
         
         # Test database connection
         logger.info("Testing database connection...")

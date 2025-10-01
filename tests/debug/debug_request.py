@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+import sys
+import os
 """
 Debug script to test the API request and see validation errors.
 """

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 def main():
     # Load environment and set MySQL
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     # Set environment for MySQL
     env = os.environ.copy()

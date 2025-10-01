@@ -4,6 +4,7 @@ Test API configuration loading to debug connection issues.
 """
 
 import logging
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -18,14 +19,17 @@ def test_api_config():
     print("=" * 50)
     
     # Load environment (same as API does)
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     print(f"DB_TYPE from env: {os.getenv('DB_TYPE', 'NOT SET')}")
     print(f"MYSQL_DB_SERVER from env: {os.getenv('MYSQL_DB_SERVER', 'NOT SET')}")
     print(f"MYSQL_DB_DATABASE from env: {os.getenv('MYSQL_DB_DATABASE', 'NOT SET')}")
     
     # Test config loading (same as API)
-    from src.config import Config
+    # Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from src.config import Config
     config = Config()
     
     print(f"\nLoaded Config:")

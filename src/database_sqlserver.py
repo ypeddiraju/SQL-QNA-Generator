@@ -75,17 +75,17 @@ class SqlServerConnector(DatabaseConnectorBase):
                 cursor = conn.cursor()
                 
                 query = """
-                SELECT TABLE_NAME
+                SELECT QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME) as FULL_TABLE_NAME
                 FROM INFORMATION_SCHEMA.TABLES 
                 WHERE TABLE_TYPE = 'BASE TABLE'
                 AND TABLE_SCHEMA != 'sys'
                 AND TABLE_NAME NOT LIKE 'sys%'
                 AND TABLE_NAME NOT LIKE 'MSreplication%'
-                ORDER BY TABLE_NAME
+                ORDER BY TABLE_SCHEMA, TABLE_NAME
                 """
                 
                 cursor.execute(query)
-                tables = [row.TABLE_NAME for row in cursor.fetchall()]
+                tables = [row.FULL_TABLE_NAME for row in cursor.fetchall()]
                 logger.info(f"Found {len(tables)} user tables")
                 return tables
                 
@@ -112,6 +112,15 @@ class SqlServerConnector(DatabaseConnectorBase):
                 for table_name in table_names:
                     logger.debug(f"Discovering schema for table: {table_name}")
                     
+                    # Parse schema-qualified table name
+                    if '.' in table_name:
+                        # Remove brackets and split
+                        clean_name = table_name.replace('[', '').replace(']', '')
+                        schema_name, actual_table_name = clean_name.split('.', 1)
+                    else:
+                        schema_name = 'dbo'  # default schema
+                        actual_table_name = table_name
+                    
                     # Query INFORMATION_SCHEMA for column information
                     query = """
                     SELECT 
@@ -123,11 +132,11 @@ class SqlServerConnector(DatabaseConnectorBase):
                         NUMERIC_PRECISION,
                         NUMERIC_SCALE
                     FROM INFORMATION_SCHEMA.COLUMNS 
-                    WHERE TABLE_NAME = ?
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
                     ORDER BY ORDINAL_POSITION
                     """
                     
-                    cursor.execute(query, table_name)
+                    cursor.execute(query, schema_name, actual_table_name)
                     columns = []
                     
                     for row in cursor.fetchall():
@@ -170,24 +179,36 @@ class SqlServerConnector(DatabaseConnectorBase):
             with self._create_connection() as conn:
                 cursor = conn.cursor()
                 
+                # Extract table names for querying (remove schema qualification)
+                actual_table_names = []
+                for table_name in table_names:
+                    if '.' in table_name:
+                        clean_name = table_name.replace('[', '').replace(']', '')
+                        _, actual_name = clean_name.split('.', 1)
+                        actual_table_names.append(actual_name)
+                    else:
+                        actual_table_names.append(table_name)
+                
                 # Query for foreign key relationships
                 query = """
                 SELECT 
                     fk.name AS FK_NAME,
-                    tp.name AS PARENT_TABLE,
+                    QUOTENAME(sp.name) + '.' + QUOTENAME(tp.name) AS PARENT_TABLE,
                     cp.name AS PARENT_COLUMN,
-                    tr.name AS REFERENCED_TABLE,
+                    QUOTENAME(sr.name) + '.' + QUOTENAME(tr.name) AS REFERENCED_TABLE,
                     cr.name AS REFERENCED_COLUMN
                 FROM sys.foreign_keys fk
                 INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
                 INNER JOIN sys.tables tp ON fkc.parent_object_id = tp.object_id
+                INNER JOIN sys.schemas sp ON tp.schema_id = sp.schema_id
                 INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
                 INNER JOIN sys.tables tr ON fkc.referenced_object_id = tr.object_id
+                INNER JOIN sys.schemas sr ON tr.schema_id = sr.schema_id
                 INNER JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
                 WHERE tp.name IN ({placeholders}) OR tr.name IN ({placeholders})
-                """.format(placeholders=','.join(['?'] * len(table_names)))
+                """.format(placeholders=','.join(['?'] * len(actual_table_names)))
                 
-                cursor.execute(query, table_names + table_names)
+                cursor.execute(query, actual_table_names + actual_table_names)
                 
                 for row in cursor.fetchall():
                     # Only include relationships where both tables are in our target list
@@ -229,7 +250,7 @@ class SqlServerConnector(DatabaseConnectorBase):
                 # First, get sample from primary table
                 logger.debug(f"Sampling {sample_size} rows from primary table: {primary_table}")
                 
-                primary_query = f"SELECT TOP {sample_size} * FROM [{primary_table}]"
+                primary_query = f"SELECT TOP {sample_size} * FROM {primary_table}"
                 cursor.execute(primary_query)
                 
                 # Get column names
@@ -306,7 +327,7 @@ class SqlServerConnector(DatabaseConnectorBase):
                 
                 # Query target table for these values
                 placeholders = ','.join(['?' for _ in fk_values])
-                query = f"SELECT * FROM [{target_table}] WHERE [{referenced_column}] IN ({placeholders})"
+                query = f"SELECT * FROM {target_table} WHERE [{referenced_column}] IN ({placeholders})"
                 cursor.execute(query, list(fk_values))
                 
             else:
@@ -325,7 +346,7 @@ class SqlServerConnector(DatabaseConnectorBase):
                 
                 # Query target table for these values
                 placeholders = ','.join(['?' for _ in pk_values])
-                query = f"SELECT * FROM [{target_table}] WHERE [{foreign_key_column}] IN ({placeholders})"
+                query = f"SELECT * FROM {target_table} WHERE [{foreign_key_column}] IN ({placeholders})"
                 cursor.execute(query, list(pk_values))
             
             # Process results
@@ -347,7 +368,7 @@ class SqlServerConnector(DatabaseConnectorBase):
     def _get_basic_sample(self, cursor, table_name: str, sample_size: int) -> List[Dict[str, Any]]:
         """Get basic sample from table when no relationship exists."""
         try:
-            query = f"SELECT TOP {sample_size} * FROM [{table_name}]"
+            query = f"SELECT TOP {sample_size} * FROM {table_name}"
             cursor.execute(query)
             
             columns = [desc[0] for desc in cursor.description]
@@ -364,3 +385,46 @@ class SqlServerConnector(DatabaseConnectorBase):
         except Exception as e:
             logger.warning(f"Error getting basic sample for {table_name}: {e}")
             return []
+    
+    def resolve_table_names(self, table_names: List[str]) -> List[str]:
+        """
+        Resolve unqualified table names to their fully qualified equivalents.
+        
+        Args:
+            table_names: List of table names (qualified or unqualified)
+            
+        Returns:
+            List of fully qualified table names
+        """
+        if not table_names:
+            return []
+            
+        # Get all available tables with their full qualification
+        all_tables = self.get_all_tables()
+        
+        # Create a mapping from unqualified names to qualified names
+        name_mapping = {}
+        for qualified_name in all_tables:
+            if '.' in qualified_name:
+                # Extract just the table name part
+                clean_name = qualified_name.replace('[', '').replace(']', '')
+                _, unqualified_name = clean_name.split('.', 1)
+                name_mapping[unqualified_name] = qualified_name
+            else:
+                name_mapping[qualified_name] = qualified_name
+        
+        resolved_names = []
+        for table_name in table_names:
+            if '.' in table_name:
+                # Already qualified
+                resolved_names.append(table_name)
+            else:
+                # Look up the qualified name
+                if table_name in name_mapping:
+                    resolved_names.append(name_mapping[table_name])
+                else:
+                    logger.warning(f"Could not resolve table name: {table_name}")
+                    # Still add it - let the subsequent operations handle the error
+                    resolved_names.append(table_name)
+        
+        return resolved_names

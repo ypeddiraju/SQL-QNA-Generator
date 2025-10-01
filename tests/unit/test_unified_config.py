@@ -2,7 +2,11 @@
 Test script to verify the unified configuration approach works correctly.
 """
 
+import sys
 import os
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from src.config import Config
 
 def test_mysql_config():

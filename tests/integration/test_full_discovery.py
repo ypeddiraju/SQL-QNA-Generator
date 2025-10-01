@@ -4,6 +4,7 @@ Test full database discovery functionality for MySQL.
 """
 
 import logging
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -13,10 +14,13 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Load environment
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     os.environ['DB_TYPE'] = 'mysql'
     
-    from src.config import Config
+    # Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from src.config import Config
     from src.database_connector import DatabaseConnector
     
     try:

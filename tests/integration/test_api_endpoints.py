@@ -5,6 +5,7 @@ Test the actual API endpoint to see if it's using updated code.
 
 import requests
 import json
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -15,7 +16,7 @@ def test_api_discovery():
     print("=" * 50)
     
     # Load environment
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     api_base = "http://localhost:8000"
     

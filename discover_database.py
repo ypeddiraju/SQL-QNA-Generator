@@ -15,7 +15,8 @@ import coloredlogs
 from dotenv import load_dotenv
 from tabulate import tabulate
 
-from src.database_connector import DatabaseConnector
+from src.database_factory import DatabaseConnectorFactory
+from src.database_base import DatabaseConnectorBase
 from src.config import Config
 from src.exceptions import QNAGeneratorError
 
@@ -81,7 +82,7 @@ def discover_database(analyze_all: bool, min_tables: int, max_tables: int,
         config = Config()
         
         # Initialize database connector
-        db_connector = DatabaseConnector(config)
+        db_connector = DatabaseConnectorFactory.create_connector(config)
         
         # Test database connection
         logger.info("Connecting to database...")
@@ -147,7 +148,7 @@ def discover_database(analyze_all: bool, min_tables: int, max_tables: int,
         return 1
 
 
-def discover_all_tables(db_connector: DatabaseConnector) -> List[str]:
+def discover_all_tables(db_connector: DatabaseConnectorBase) -> List[str]:
     """Discover all user tables in the database."""
     try:
         # Use the database connector's built-in method instead of direct connection
@@ -205,7 +206,7 @@ def interactive_table_selection(all_tables: List[str], min_tables: int, max_tabl
             click.echo("❌ Invalid input. Enter numbers separated by commas")
 
 
-def analyze_selected_tables(db_connector: DatabaseConnector, tables: List[str]) -> Dict[str, Any]:
+def analyze_selected_tables(db_connector: DatabaseConnectorBase, tables: List[str]) -> Dict[str, Any]:
     """Analyze the selected tables and their relationships."""
     
     # Get schemas

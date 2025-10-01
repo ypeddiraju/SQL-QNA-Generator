@@ -4,6 +4,7 @@ Test improved table schema error handling.
 """
 
 import logging
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -18,10 +19,13 @@ def test_schema_error_handling():
     print("=" * 50)
     
     # Load environment
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     os.environ['DB_TYPE'] = 'mysql'
     
-    from src.config import Config
+    # Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from src.config import Config
     from src.database_connector import DatabaseConnector
     
     try:

@@ -2,6 +2,7 @@
 """
 Test MySQL connection with timeout debugging
 """
+import sys
 import os
 import logging
 from dotenv import load_dotenv
@@ -12,12 +13,15 @@ logger = logging.getLogger(__name__)
 
 def test_mysql_connection():
     # Load environment variables
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     # Force MySQL type
     os.environ['DB_TYPE'] = 'mysql'
     
-    from src.config import Config
+    # Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from src.config import Config
     from src.database_connector import DatabaseConnector
     
     config = Config()

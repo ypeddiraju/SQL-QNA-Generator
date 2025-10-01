@@ -98,3 +98,18 @@ class DatabaseConnectorBase(ABC):
     def _serialize_row(self, row_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Serialize all values in a row dictionary."""
         return {key: self._serialize_value(value) for key, value in row_dict.items()}
+    
+    def resolve_table_names(self, table_names: List[str]) -> List[str]:
+        """
+        Resolve unqualified table names to their fully qualified equivalents.
+        
+        Default implementation returns names as-is. Database-specific implementations
+        should override this to handle schema qualification.
+        
+        Args:
+            table_names: List of table names (qualified or unqualified)
+            
+        Returns:
+            List of fully qualified table names
+        """
+        return table_names

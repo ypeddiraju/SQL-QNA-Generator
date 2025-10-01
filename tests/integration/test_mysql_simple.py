@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+import sys
+import os
 """
 Simple MySQL connection test to isolate timeout issues.
 """
@@ -6,6 +9,9 @@ Simple MySQL connection test to isolate timeout issues.
 import logging
 import pymysql
 from dotenv import load_dotenv
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from src.config import Config
 
 # Setup logging
@@ -14,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def test_direct_connection():
     """Test direct PyMySQL connection."""
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     config = Config()
     config.db_type = 'mysql'

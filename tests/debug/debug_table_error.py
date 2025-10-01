@@ -4,6 +4,7 @@ Debug the exact source of the table error.
 """
 
 import logging
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -18,11 +19,14 @@ def debug_table_error():
     print("=" * 50)
     
     # Load environment
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
     
     print(f"DB_TYPE from .env: {os.getenv('DB_TYPE')}")
     
-    from src.config import Config
+    # Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from src.config import Config
     config = Config()
     
     print(f"Config db_type: '{config.db_type}'")
